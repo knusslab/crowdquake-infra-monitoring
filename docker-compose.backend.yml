@@ -1,0 +1,69 @@
+services:
+  # MySQL DB 서비스
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: always
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_DATABASE: monitoring_db
+      MYSQL_USER: monitoring_user
+      MYSQL_PASSWORD: monitoring_pass
+      TZ: Asia/Seoul
+    volumes:
+      - ./db/mysql/data:/var/lib/mysql
+      - ./db/mysql/config:/etc/mysql/conf.d
+      - ./db/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - monitoring_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # API Backend 서비스
+  api-backend:
+    build:
+      context: .                     # settings.gradle이 있는 루트
+      dockerfile: api-backend/Dockerfile
+    container_name: api-backend
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: jdbc:mysql://mysql-db:3306/monitoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+      DATABASE_USERNAME: monitoring_user
+      DATABASE_PASSWORD: monitoring_pass
+      TZ: Asia/Seoul
+    networks:
+      - monitoring_network
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+  # Consumer 서비스 (metrics-backend/consumer)
+  consumer:
+    build:
+      context: .
+      dockerfile: metrics-backend/consumer/Dockerfile
+    container_name: consumer
+    environment:
+      - TZ=Asia/Seoul
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    networks:
+      - monitoring_network
+    restart: always
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      api-backend:
+        condition: service_started
+
+networks:
+  monitoring_network:
+    external: true

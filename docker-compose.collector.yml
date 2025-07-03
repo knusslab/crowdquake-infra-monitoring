@@ -1,0 +1,55 @@
+services:
+  data-collector:
+    build:
+      context: .
+      dockerfile: metrics-backend/data-collector/Dockerfile
+    container_name: data-collector
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8001:8001"
+    networks:
+      - monitoring_network
+    restart: always
+
+  localhost-data-collector:
+    build:
+      context: .
+      dockerfile: metrics-backend/localhost-data-collector/Dockerfile
+    container_name: localhost-data-collector
+    environment:
+      - TZ=Asia/Seoul
+    ports:
+      - "8002:8002"
+    networks:
+      - monitoring_network
+    restart: always
+
+networks:
+  monitoring_network:
+    external: true
+
+
+#services:
+#  data-collector:
+#    build:
+#      context: .
+#      dockerfile: metrics-backend/data-collector/Dockerfile  # 경로 수정
+#    container_name: data-collector
+#    environment:
+#      - TZ=Asia/Seoul
+#    networks:
+#      - monitoring_network
+#
+#  localhost-data-collector:
+#    build:
+#      context: .
+#      dockerfile: metrics-backend/localhost-data-collector/Dockerfile   # 경로 수정
+#    container_name: localhost-data-collector
+#    environment:
+#    - TZ=Asia/Seoul
+#    networks:
+#      - monitoring_network
+#networks:
+#  monitoring_network:
+#    external: true

@@ -105,7 +105,7 @@ public class ThresholdService {
     public List<Map<String, Object>> getThresholdHistoryforTargetId(TargetIdforHistory targetId) {
 
         // Service를 통해 DB 조회
-        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByDate(targetId.getTargetId());
+        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByTargetId(targetId.getTargetId());
 
         // 결과를 클라이언트에 맞게 매핑
         List<Map<String, Object>> result = new ArrayList<>();

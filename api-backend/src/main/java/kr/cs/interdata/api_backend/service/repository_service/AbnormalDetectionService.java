@@ -70,6 +70,21 @@ public class AbnormalDetectionService {
         return abnormalMetricLogRepository.findByTimestampBetween(startOfDay, endOfDay);
     }
 
+    /**
+     *  - 최근 이상 상태(AbnormalMetricLog)를 조회한다.
+     * <p>
+     *  - 지정한 날짜를 기준으로 임계값을 초과한 기록을 조회한다.
+     * </p>
+     *
+     * @param targetId 조회할 targetId (ex. host001, container002, ...)
+     * @return 조회된 이상 기록 리스트
+     */
+    public List<AbnormalMetricLog> getLatestAbnormalMetricsByTargetId(String targetId) {
+
+        // DB 조회 (특정 날짜의 임계치 초과 기록만 가져옴)
+        return abnormalMetricLogRepository.findTop20ByTargetIdOrderByTimestampDesc(targetId);
+    }
+
     //(선택)1달 이상 지난 로그 삭제 -> AbnrmalMetricLog
 
 }

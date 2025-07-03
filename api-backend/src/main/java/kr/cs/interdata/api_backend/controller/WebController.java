@@ -33,9 +33,14 @@ public class WebController {
         return ResponseEntity.ok(thresholdService.setThreshold(dto));
     }
 
+    // @PostMapping("/metrics/threshold-history")
+    // public ResponseEntity<?> getThresholdHistory(@RequestBody DateforHistory date) {
+    //     return ResponseEntity.ok(thresholdService.getThresholdHistory(date));
+    // }
+
     @PostMapping("/metrics/threshold-history")
-    public ResponseEntity<?> getThresholdHistory(@RequestBody DateforHistory date) {
-        return ResponseEntity.ok(thresholdService.getThresholdHistory(date));
+    public ResponseEntity<?> getThresholdHistory(@RequestBody TargetIdforHistory targetId) {
+        return ResponseEntity.ok(thresholdService.getThresholdHistoryforTargetId(targetId));
     }
 
     // SSE 방식

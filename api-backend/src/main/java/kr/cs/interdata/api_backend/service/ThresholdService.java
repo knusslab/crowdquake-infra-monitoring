@@ -98,6 +98,30 @@ public class ThresholdService {
     }
 
     /**
+     *  3. 특정 target Id의 임계값 초과 이력 조회
+     * @param targetId  조회할 target Id
+     * @return  이력 리스트
+     */
+    public List<Map<String, Object>> getThresholdHistoryforTargetId(TargetIdforHistory targetId) {
+
+        // Service를 통해 DB 조회
+        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByTargetId(targetId.getTargetId());
+
+        // 결과를 클라이언트에 맞게 매핑
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AbnormalMetricLog log : logs) {
+            Map<String, Object> record = new HashMap<>();
+            record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+            record.put("targetId", log.getTargetId());
+            record.put("metricName", log.getMetricName());
+            record.put("value", log.getValue().toString());
+            result.add(record);
+        }
+
+        return result;
+    }
+
+    /**
      *  4. threshold 조회
      *  -> MetricsByType 테이블의 모든 값을 조회해,
      *      모든 타입의 모든 metric의 threshold를 Map의 형태로 저장하여 return한다.

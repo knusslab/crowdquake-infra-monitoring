@@ -1,0 +1,11 @@
+.gradle
+
+.idea
+*.iml
+*.log
+*.class
+.DS_Store
+Thumbs.db
+out
+test-output
+db/mysql/data/**

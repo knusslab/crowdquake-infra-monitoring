@@ -28,10 +28,3 @@ COPY --from=build /build/metrics-backend/consumer/build/libs/consumer-0.0.1-SNAP
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
 
-
-
-# 기존 방식
-#FROM eclipse-temurin:21-jre
-#WORKDIR /app
-#COPY build/libs/consumer-0.0.1-SNAPSHOT.jar app.jar
-#ENTRYPOINT ["java", "-jar", "app.jar"]

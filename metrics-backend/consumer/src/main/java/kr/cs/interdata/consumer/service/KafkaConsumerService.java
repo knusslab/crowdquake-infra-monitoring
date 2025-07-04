@@ -314,7 +314,7 @@ public class KafkaConsumerService {
 
             // 임계값 초과 데이터를 API 백엔드로 전송
             // API 호출은 대기시간이 있을 수 있으므로, sendThresholdViolation함수 내 호출에서 비동기 작업 처리한다.
-            thresholdService.sendThresholdViolation(type, machineId, metricName, value, violationTime);
+            thresholdService.sendThresholdViolation(type, machineId, metricName, threshold, value, violationTime);
 
         }
         // 임계값을 정상적으로 받아오고, 임계값이 초과되지 않음.

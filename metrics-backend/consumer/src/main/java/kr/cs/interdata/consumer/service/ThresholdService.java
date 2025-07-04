@@ -32,8 +32,8 @@ public class ThresholdService {
      * @param value    : 임계값을 넘은 값
      * @param timestamp: 임계값을 넘은 시각
      */
-    public void sendThresholdViolation(String type, String machineId, String metricName, Double value, LocalDateTime timestamp) {
-        ThresholdRequest request = new ThresholdRequest(type, machineId, metricName, value, timestamp);
+    public void sendThresholdViolation(String type, String machineId, String metricName, Double threshold, Double value, LocalDateTime timestamp) {
+        ThresholdRequest request = new ThresholdRequest(type, machineId, metricName, threshold, value, timestamp);
         String url = "/api/violation-store";
 
         // API 백엔드로 POST 요청을 보내고 응답을 처리
@@ -48,8 +48,8 @@ public class ThresholdService {
                 })
                 .doOnTerminate(() -> {
                     // 성공적으로 요청을 마친 후의 처리
-                    logger.info("임계값 초과 데이터 전송 완료: type - {}, machineId - {}, metric - {}, value - {}, timestamp - {}"
-                            , type, machineId, metricName, value, timestamp);
+                    logger.info("임계값 초과 데이터 전송 완료: type - {}, machineId - {}, metric - {}, threshold - {}, value - {}, timestamp - {}"
+                            , type, machineId, metricName, threshold, value, timestamp);
                 })
                 .subscribe();  // 비동기 방식으로 호출
     }

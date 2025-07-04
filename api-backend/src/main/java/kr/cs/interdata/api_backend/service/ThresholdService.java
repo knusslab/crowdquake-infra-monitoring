@@ -90,6 +90,7 @@ public class ThresholdService {
             record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
             record.put("targetId", log.getTargetId());
             record.put("metricName", log.getMetricName());
+            record.put("threshold", log.getThreshold());
             record.put("value", log.getValue().toString());
             result.add(record);
         }
@@ -114,6 +115,7 @@ public class ThresholdService {
             record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
             record.put("targetId", log.getTargetId());
             record.put("metricName", log.getMetricName());
+            record.put("threshold", log.getThreshold());
             record.put("value", log.getValue().toString());
             result.add(record);
         }
@@ -150,6 +152,7 @@ public class ThresholdService {
         String type = dto.getType();
         String machineId = dto.getMachineId();
         String metricName = dto.getMetricName();
+        String threshold = dto.getThreshold();
         String value = dto.getValue();
         LocalDateTime timestamp = dto.getTimestamp();
 
@@ -159,6 +162,7 @@ public class ThresholdService {
         abnormalDetectionService.storeViolation(
                 targetId,
                 metricName,
+                threshold,
                 value,
                 timestamp
         );
@@ -168,6 +172,7 @@ public class ThresholdService {
         alert.setTargetId(targetId);
         alert.setMetricName(metricName);
         alert.setValue(value);
+        alert.setThreshold(threshold);
         alert.setTimestamp(timestamp);
 
         // 실시간 전송 (비동기 처리)

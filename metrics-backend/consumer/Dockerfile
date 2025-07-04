@@ -15,7 +15,7 @@ COPY gradle/wrapper gradle/wrapper
 COPY . .
 
 # consumer 모듈만 빌드
-RUN ./gradlew :metrics-backend:consumer:build -x test
+RUN ./gradlew :metrics-backend:consumer:clean :metrics-backend:consumer:build -x test
 
 RUN find /build -name "*.jar"
 

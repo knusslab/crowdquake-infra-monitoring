@@ -1,5 +1,6 @@
 package kr.cs.interdata.datacollector;
 
+import com.github.dockerjava.api.model.Statistics;
 import com.google.gson.Gson;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.producer.service.KafkaProducerService;
@@ -30,13 +31,11 @@ public class DataCollectorApplication {
 
 @Component
 class DataCollectorRunner implements CommandLineRunner {
-    private static final Logger logger = LoggerFactory.getLogger(DataCollectorRunner.class);
-    private final KafkaProducerService kafkaProducerService;
 
+    private static final Logger logger = LoggerFactory.getLogger(DataCollectorRunner.class);
+
+    private final KafkaProducerService kafkaProducerService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-    private final Set<String> connectedContainerIds = new HashSet<>();
-    private static final String MONITORING_NETWORK = "monitoring_network";
-    private static final int NETWORK_CHECK_INTERVAL_SECONDS = 30;
 
     @Autowired
     public DataCollectorRunner(KafkaProducerService kafkaProducerService) {
@@ -45,102 +44,89 @@ class DataCollectorRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
+        boolean isSelf = "true".equalsIgnoreCase(System.getenv("EXCLUDE_SELF"));
+        logger.info("EXCLUDE_SELF = {}", isSelf);
 
-
-        //초기값(누적값) 저장 -> 뱐화량 계산을 위해서
-        long prevCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
-        long prevDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
-        long prevDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
-        Map<String, Long[]> prevNetStats = ContainerResourceMonitor.getNetworkStats();
-
-        Gson gson = new Gson();
-
-        while (true) {
-            // 자기 자신은 수집과 전송하지 않음 -> 자기 자신을 수집하는 로직은 따로 만들어 보려고 함.
-            String excludeSelf = System.getenv("EXCLUDE_SELF");
-            if ("true".equalsIgnoreCase(excludeSelf)) {
-                logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
-                try {
-                    Thread.sleep(1000);
-                } catch (InterruptedException e) {
-                }
-                continue;
-            }
-
-            // 현재 누적값  수집
-            long currCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
-            long currDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
-            long currDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
-            Map<String, Long[]> currNetStats = ContainerResourceMonitor.getNetworkStats();
-            Map<String, Object> resourceMap = ContainerResourceMonitor.collectContainerResourceRaw();
-
-            // CPU 사용률 계산(1초 기준, 1코어 100%)
-            long deltaCpuNano = currCpuUsageNano - prevCpuUsageNano;
-            double cpuUsagePercent = (deltaCpuNano / 1_000_000_000.0) * 100;
-
-            // 디스크 변화량 계산(읽기/쓰기)
-            long deltaDiskRead = currDiskReadBytes - prevDiskReadBytes;
-            long deltaDiskWrite = currDiskWriteBytes - prevDiskWriteBytes;
-
-            // 네트워크 변화량 및 속도 계산 -> 속도는 1초마다 받아오면 수신 및 송신 바이트와 동일하여 없애도 될 듯
-            Map<String, Map<String, Object>> netDelta = new HashMap<>();
-            for (String iface : currNetStats.keySet()) {
-                Long[] curr = currNetStats.get(iface);
-                Long[] prev = prevNetStats.getOrDefault(iface, new Long[]{curr[0], curr[1]});
-                long deltaRecv = curr[0] - prev[0];
-                long deltaSent = curr[1] - prev[1];
-
-                Map<String, Object> ifaceDelta = new HashMap<>();
-                ifaceDelta.put("rxBytesDelta", deltaRecv);//1초간 수신 바이트
-                ifaceDelta.put("txBytesDelta", deltaSent);//1초간 송신 바이트
-                ifaceDelta.put("rxBps", deltaRecv); // 1초마다 반복이므로 deltaRecv가 Bps
-                ifaceDelta.put("txBps", deltaSent);
-                netDelta.put(iface, ifaceDelta);
-
-                //다음 루프에서 사용할 이전값 갱신
-                prevNetStats.put(iface, curr);
-            }
-
-            // 최종 JSON 생성
-            Map<String, Object> resultJson = new LinkedHashMap<>();
-            resultJson.put("type", resourceMap.get("type"));//컨테이너 타입
-            resultJson.put("containerId", resourceMap.get("containerId"));//컨테이너 아이디
-            resultJson.put("cpuUsagePercent", cpuUsagePercent);//CPU 사용률(%)
-            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));//메모리 사용량(바이트)
-            resultJson.put("diskReadBytesDelta", deltaDiskRead);//디스크 읽기 변화량(바이트)
-            resultJson.put("diskWriteBytesDelta", deltaDiskWrite);//디스크 쓰기 변화량(바이트)
-            resultJson.put("networkDelta", netDelta);//네트워크 인터페이스별 변화량/속도
-
-            String jsonPayload = gson.toJson(resultJson);
-
-            //System.out.println("=== 컨테이너 리소스 변화량 수집 결과 ===");
-            System.out.println(jsonPayload);
-
-            // Kafka로 전송
-            kafkaProducerService.routeMessageBasedOnType(jsonPayload);
-
-            // 이전값 갱신
-            prevCpuUsageNano = currCpuUsageNano;
-            prevDiskReadBytes = currDiskReadBytes;
-            prevDiskWriteBytes = currDiskWriteBytes;
-            prevNetStats = currNetStats;
-
-            //1초 대기 후 반복
-            try {
-                Thread.sleep(1000); // 1초마다 반복
-            } catch (InterruptedException e) {
-                System.out.println("스레드가 인터럽트되었습니다.");
-            }
+        if (isSelf) {
+            // 자기 자신 모니터링
+            scheduler.scheduleAtFixedRate(this::monitorSelf, 0, 1, TimeUnit.SECONDS);
+        } else {
+            // 다른 컨테이너 모니터링
+            scheduler.scheduleAtFixedRate(this::monitorOthers, 0, 1, TimeUnit.SECONDS);
         }
     }
 
+    private void monitorSelf() {
+        try {
+            Gson gson = new Gson();
 
-    // 애플리케이션 종료 시 스케줄러 정리
+            long currCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
+            long[] diskIO = ContainerResourceMonitor.getDiskIO();
+            Map<String, Long[]> currNetStats = ContainerResourceMonitor.getNetworkStats();
+
+            Map<String, Object> resourceMap = ContainerResourceMonitor.collectContainerResourceRaw();
+
+            Map<String, Object> resultJson = new LinkedHashMap<>();
+            resultJson.put("type", resourceMap.get("type"));
+            resultJson.put("containerId", resourceMap.get("containerId"));
+            resultJson.put("cpuUsageNano", currCpuUsageNano);
+            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));
+            resultJson.put("diskReadBytes", diskIO[0]);
+            resultJson.put("diskWriteBytes", diskIO[1]);
+            resultJson.put("network", currNetStats);
+
+            String jsonPayload = gson.toJson(resultJson);
+            System.out.println("[SELF] " + jsonPayload);
+            kafkaProducerService.routeMessageBasedOnType(jsonPayload);
+        } catch (Exception e) {
+            logger.error("자기 자신 모니터링 중 오류", e);
+        }
+    }
+
+    private void monitorOthers() {
+        try {
+            Gson gson = new Gson();
+            DockerStatsCollector collector = new DockerStatsCollector();
+
+            Map<String, Statistics> statsMap = collector.getAllContainerStats();
+
+            for (Map.Entry<String, Statistics> entry : statsMap.entrySet()) {
+                String containerId = entry.getKey();
+                Statistics stats = entry.getValue();
+
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("type", "container");
+                result.put("containerId", containerId);
+                result.put("cpuUsageNano", stats.getCpuStats().getCpuUsage().getTotalUsage());
+                result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
+
+                if (stats.getNetworks() != null) {
+                    Map<String, Map<String, Object>> network = new HashMap<>();
+                    stats.getNetworks().forEach((iface, net) -> {
+                        Map<String, Object> ifaceData = new HashMap<>();
+                        ifaceData.put("rxBytes", net.getRxBytes());
+                        ifaceData.put("txBytes", net.getTxBytes());
+                        network.put(iface, ifaceData);
+                    });
+                    result.put("network", network);
+                }
+
+                String json = gson.toJson(result);
+                System.out.println("[OTHERS] " + json);
+                kafkaProducerService.routeMessageBasedOnType(json);
+            }
+
+        } catch (Exception e) {
+            logger.error("다른 컨테이너 모니터링 중 오류", e);
+        }
+    }
+
     @PreDestroy
-    public void destroy() {
+    public void shutdown() {
+        logger.info("스케줄러 종료 중...");
         scheduler.shutdown();
         try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+            if (!scheduler.awaitTermination(3, TimeUnit.SECONDS)) {
                 scheduler.shutdownNow();
             }
         } catch (InterruptedException e) {
@@ -148,5 +134,159 @@ class DataCollectorRunner implements CommandLineRunner {
             Thread.currentThread().interrupt();
         }
     }
-
 }
+
+
+//@Component
+//class DataCollectorRunner implements CommandLineRunner {
+//    private static final Logger logger = LoggerFactory.getLogger(DataCollectorRunner.class);
+//    private final KafkaProducerService kafkaProducerService;
+//
+//    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+//
+//    private final Set<String> connectedContainerIds = new HashSet<>();
+//    private static final String MONITORING_NETWORK = "monitoring_network";
+//    private static final int NETWORK_CHECK_INTERVAL_SECONDS = 30;
+//
+//    @Autowired
+//    public DataCollectorRunner(KafkaProducerService kafkaProducerService) {
+//        this.kafkaProducerService = kafkaProducerService;
+//    }
+//
+//    @Override
+//    public void run(String... args) {
+//
+//        DockerStatsCollector collector = new DockerStatsCollector();
+//        Gson gson = new Gson();
+//
+//        Map<String, Statistics> statsMap = collector.getAllContainerStats();
+//
+//        for (Map.Entry<String, Statistics> entry : statsMap.entrySet()) {
+//            String containerId = entry.getKey();
+//            Statistics stats = entry.getValue();
+//
+//            Map<String, Object> result = new HashMap<>();
+//            result.put("containerId", containerId);
+//            result.put("cpuUsageNano", stats.getCpuStats().getCpuUsage().getTotalUsage());
+//            result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
+//
+//            // 네트워크도 포함
+//            if (stats.getNetworks() != null) {
+//                Map<String, Object> net = new HashMap<>();
+//                stats.getNetworks().forEach((iface, data) -> {
+//                    Map<String, Object> ifaceMap = new HashMap<>();
+//                    ifaceMap.put("rxBytes", data.getRxBytes());
+//                    ifaceMap.put("txBytes", data.getTxBytes());
+//                    net.put(iface, ifaceMap);
+//                });
+//                result.put("network", net);
+//            }
+//
+//            String json = gson.toJson(result);
+//            kafkaProducerService.routeMessageBasedOnType(json);
+//        }
+//
+//
+//        //초기값(누적값) 저장 -> 뱐화량 계산을 위해서
+//        long prevCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
+//        long prevDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
+//        long prevDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
+//        Map<String, Long[]> prevNetStats = ContainerResourceMonitor.getNetworkStats();
+//
+//        //Gson gson = new Gson();
+//
+//        while (true) {
+//            // 자기 자신은 수집과 전송하지 않음 -> 자기 자신을 수집하는 로직은 따로 만들어 보려고 함.
+//            String excludeSelf = System.getenv("EXCLUDE_SELF");
+//            if ("true".equalsIgnoreCase(excludeSelf)) {
+//                logger.info("자기 자신 컨테이너이므로 리소스 수집/전송을 건너뜁니다.");
+//                try {
+//                    Thread.sleep(1000);
+//                } catch (InterruptedException e) {
+//                }
+//                continue;
+//            }
+//
+//            // 현재 누적값  수집
+//            long currCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
+//            long currDiskReadBytes = ContainerResourceMonitor.getDiskIO()[0];
+//            long currDiskWriteBytes = ContainerResourceMonitor.getDiskIO()[1];
+//            Map<String, Long[]> currNetStats = ContainerResourceMonitor.getNetworkStats();
+//            Map<String, Object> resourceMap = ContainerResourceMonitor.collectContainerResourceRaw();
+//
+//            // CPU 사용률 계산(1초 기준, 1코어 100%)
+//            long deltaCpuNano = currCpuUsageNano - prevCpuUsageNano;
+//            double cpuUsagePercent = (deltaCpuNano / 1_000_000_000.0) * 100;
+//
+//            // 디스크 변화량 계산(읽기/쓰기)
+//            long deltaDiskRead = currDiskReadBytes - prevDiskReadBytes;
+//            long deltaDiskWrite = currDiskWriteBytes - prevDiskWriteBytes;
+//
+//            // 네트워크 변화량 및 속도 계산 -> 속도는 1초마다 받아오면 수신 및 송신 바이트와 동일하여 없애도 될 듯
+//            Map<String, Map<String, Object>> netDelta = new HashMap<>();
+//            for (String iface : currNetStats.keySet()) {
+//                Long[] curr = currNetStats.get(iface);
+//                Long[] prev = prevNetStats.getOrDefault(iface, new Long[]{curr[0], curr[1]});
+//                long deltaRecv = curr[0] - prev[0];
+//                long deltaSent = curr[1] - prev[1];
+//
+//                Map<String, Object> ifaceDelta = new HashMap<>();
+//                ifaceDelta.put("rxBytesDelta", deltaRecv);//1초간 수신 바이트
+//                ifaceDelta.put("txBytesDelta", deltaSent);//1초간 송신 바이트
+//                ifaceDelta.put("rxBps", deltaRecv); // 1초마다 반복이므로 deltaRecv가 Bps
+//                ifaceDelta.put("txBps", deltaSent);
+//                netDelta.put(iface, ifaceDelta);
+//
+//                //다음 루프에서 사용할 이전값 갱신
+//                prevNetStats.put(iface, curr);
+//            }
+//
+//            // 최종 JSON 생성
+//            Map<String, Object> resultJson = new LinkedHashMap<>();
+//            resultJson.put("type", resourceMap.get("type"));//컨테이너 타입
+//            resultJson.put("containerId", resourceMap.get("containerId"));//컨테이너 아이디
+//            resultJson.put("cpuUsagePercent", cpuUsagePercent);//CPU 사용률(%)
+//            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));//메모리 사용량(바이트)
+//            resultJson.put("diskReadBytesDelta", deltaDiskRead);//디스크 읽기 변화량(바이트)
+//            resultJson.put("diskWriteBytesDelta", deltaDiskWrite);//디스크 쓰기 변화량(바이트)
+//            resultJson.put("networkDelta", netDelta);//네트워크 인터페이스별 변화량/속도
+//
+//            String jsonPayload = gson.toJson(resultJson);
+//
+//            //System.out.println("=== 컨테이너 리소스 변화량 수집 결과 ===");
+//            System.out.println(jsonPayload);
+//
+//            // Kafka로 전송
+//            kafkaProducerService.routeMessageBasedOnType(jsonPayload);
+//
+//            // 이전값 갱신
+//            prevCpuUsageNano = currCpuUsageNano;
+//            prevDiskReadBytes = currDiskReadBytes;
+//            prevDiskWriteBytes = currDiskWriteBytes;
+//            prevNetStats = currNetStats;
+//
+//            //1초 대기 후 반복
+//            try {
+//                Thread.sleep(1000); // 1초마다 반복
+//            } catch (InterruptedException e) {
+//                System.out.println("스레드가 인터럽트되었습니다.");
+//            }
+//        }
+//    }
+//
+//
+//    // 애플리케이션 종료 시 스케줄러 정리
+//    @PreDestroy
+//    public void destroy() {
+//        scheduler.shutdown();
+//        try {
+//            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+//                scheduler.shutdownNow();
+//            }
+//        } catch (InterruptedException e) {
+//            scheduler.shutdownNow();
+//            Thread.currentThread().interrupt();
+//        }
+//    }
+//
+//}

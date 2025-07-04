@@ -1,5 +1,6 @@
 package kr.cs.interdata.datacollector;
 
+import com.github.dockerjava.api.model.BlkioStatEntry;
 import com.github.dockerjava.api.model.Statistics;
 import com.google.gson.Gson;
 import jakarta.annotation.PreDestroy;
@@ -36,6 +37,13 @@ class DataCollectorRunner implements CommandLineRunner {
 
     private final KafkaProducerService kafkaProducerService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    //
+    // 클래스 필드에 이전 값을 저장할 맵 추가
+    private final Map<String, Long> previousReadBytes = new HashMap<>();
+    private final Map<String, Long> previousWriteBytes = new HashMap<>();
+    private final Map<String, Map<String, Long>> previousRxBytes = new HashMap<>();
+    private final Map<String, Map<String, Long>> previousTxBytes = new HashMap<>();
 
     @Autowired
     public DataCollectorRunner(KafkaProducerService kafkaProducerService) {
@@ -87,7 +95,6 @@ class DataCollectorRunner implements CommandLineRunner {
         try {
             Gson gson = new Gson();
             DockerStatsCollector collector = new DockerStatsCollector();
-
             Map<String, Statistics> statsMap = collector.getAllContainerStats();
 
             for (Map.Entry<String, Statistics> entry : statsMap.entrySet()) {
@@ -97,22 +104,98 @@ class DataCollectorRunner implements CommandLineRunner {
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("type", "container");
                 result.put("containerId", containerId);
-                result.put("cpuUsageNano", stats.getCpuStats().getCpuUsage().getTotalUsage());
+
+                // cpu
+                Long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
+                Long systemUsage = stats.getCpuStats().getSystemCpuUsage();
+                Long precTotalUsage = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
+                Long precSystemUsage = stats.getPreCpuStats().getSystemCpuUsage();
+                Long cpuCount = stats.getCpuStats().getOnlineCpus();
+
+                double cpuUsagePercent = 0.0;
+                if (totalUsage != null && systemUsage != null &&
+                        precTotalUsage != null && precSystemUsage != null &&
+                        cpuCount != null && systemUsage > precSystemUsage) {
+
+                    double cpuDelta = totalUsage - precTotalUsage;
+                    double systemDelta = systemUsage - precSystemUsage;
+                    cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
+                }
+                result.put("cpuUsageNano", totalUsage != null ? totalUsage : 0);
+                result.put("cpuUsagePercent", cpuUsagePercent);
+
+
+                // Memory usage
                 result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
 
-                if (stats.getNetworks() != null) {
-                    Map<String, Map<String, Object>> network = new HashMap<>();
-                    stats.getNetworks().forEach((iface, net) -> {
-                        Map<String, Object> ifaceData = new HashMap<>();
-                        ifaceData.put("rxBytes", net.getRxBytes());
-                        ifaceData.put("txBytes", net.getTxBytes());
-                        network.put(iface, ifaceData);
-                    });
-                    result.put("network", network);
+                // Disk I/O delta 계산
+                long read = 0, write = 0;
+                List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
+
+                if (ioStats != null) {
+                    for (BlkioStatEntry entry2 : ioStats) {
+                        String op = entry2.getOp();
+                        Long value = entry2.getValue();
+
+                        if ("Read".equalsIgnoreCase(op)) {
+                            read += value != null ? value : 0;
+                        } else if ("Write".equalsIgnoreCase(op)) {
+                            write += value != null ? value : 0;
+                        }
+                    }
                 }
 
+                long prevRead = previousReadBytes.getOrDefault(containerId, 0L);
+                long prevWrite = previousWriteBytes.getOrDefault(containerId, 0L);
+                long readDelta = read - prevRead;
+                long writeDelta = write - prevWrite;
+
+                result.put("diskReadBytesDelta", readDelta);
+                result.put("diskWriteBytesDelta", writeDelta);
+
+                previousReadBytes.put(containerId, read);
+                previousWriteBytes.put(containerId, write);
+
+                // Network delta + bps 계산
+                Map<String, Object> networkDelta = new LinkedHashMap<>();
+                if (stats.getNetworks() != null) {
+
+                    stats.getNetworks().forEach((iface, net) -> {
+                        long rx = net.getRxBytes();
+                        long tx = net.getTxBytes();
+
+                        Map<String, Long> prevRxTx = previousRxBytes.getOrDefault(containerId, new HashMap<>());
+                        long prevRx = prevRxTx.getOrDefault(iface + ":rx", 0L);
+                        long prevTx = prevRxTx.getOrDefault(iface + ":tx", 0L);
+
+                        long rxDelta = rx - prevRx;
+                        long txDelta = tx - prevTx;
+
+                        Map<String, Object> ifaceData = new LinkedHashMap<>();
+                        ifaceData.put("rxBytesDelta", rxDelta);
+                        ifaceData.put("txBytesDelta", txDelta);
+                        ifaceData.put("rxBps", rxDelta); // 1초 간격
+                        ifaceData.put("txBps", txDelta);
+
+                        networkDelta.put(iface, ifaceData);
+
+                        prevRxTx.put(iface + ":rx", rx);
+                        prevRxTx.put(iface + ":tx", tx);
+                        previousRxBytes.put(containerId, prevRxTx);
+                    });
+                }
+                else {
+                    Map<String, Object> dummy = new LinkedHashMap<>();
+                    dummy.put("rxBytesDelta", 0L);
+                    dummy.put("txBytesDelta", 0L);
+                    dummy.put("rxBps", 0L);
+                    dummy.put("txBps", 0L);
+                    networkDelta.put("lo", dummy); // 루프백 인터페이스 이름으로 처리
+                }
+                result.put("networkDelta", networkDelta);
+
                 String json = gson.toJson(result);
-                System.out.println("[OTHERS] " + json);
+                logger.info("[MONITOR-OTHERS : Complete] {}", json);
                 kafkaProducerService.routeMessageBasedOnType(json);
             }
 

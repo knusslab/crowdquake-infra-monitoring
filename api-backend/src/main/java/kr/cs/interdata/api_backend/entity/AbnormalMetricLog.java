@@ -26,9 +26,10 @@ public class AbnormalMetricLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer number;     // 누적 값
 
-    private String targetId;   // anomaly machine's id
+    private String targetId;    // anomaly machine's id
 
-    private String metricName; // anomaly metric's name
+    private String metricName;  // anomaly metric's name
+    private Double threshold;   // anomaly가 생긴 당시의 threshold
     private Double value;       // outlier
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss", shape = JsonFormat.Shape.STRING)
     private LocalDateTime timestamp;    // anomaly가 생긴 시각

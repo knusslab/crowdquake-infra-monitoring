@@ -37,12 +37,13 @@ public class AbnormalDetectionService {
      * @param value     이상값
      * @param timestamp 이상값이 발생한 시각
      */
-    public void storeViolation(String id, String metric, String value, LocalDateTime timestamp) {
+    public void storeViolation(String id, String metric, String threshold, String value, LocalDateTime timestamp) {
         // 1. AbnormalMetricLog 저장
         AbnormalMetricLog abn = new AbnormalMetricLog();
 
         abn.setTargetId(id);
         abn.setMetricName(metric);
+        abn.setThreshold(Double.valueOf(threshold));
         abn.setValue(Double.valueOf(value));
         abn.setTimestamp(timestamp);
         abnormalMetricLogRepository.save(abn);

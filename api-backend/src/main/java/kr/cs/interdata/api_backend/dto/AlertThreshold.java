@@ -12,6 +12,7 @@ public class AlertThreshold {
 
     private String targetId;    // 메시지를 보낸 호스트/컨테이너의 고유 id
     private String metricName;  // 메트릭 이름
+    private String threshold;   // 임계값을 넘은 당시의 기준임계값
     private String value;   // 임계값을 넘은 값
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss", shape = JsonFormat.Shape.STRING)

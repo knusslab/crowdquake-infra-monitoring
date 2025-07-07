@@ -34,10 +34,10 @@ public class MetricService {
 
         // logger
         if (metricsNode.has("hostId")) {
-            logger.info("Sending threshold metric: {}", metricsNode.get("hostId").asText());
+            logger.info("Sended threshold metric: {}", metricsNode.get("hostId").asText());
         }
         else if (metricsNode.has("containerId")) {
-            logger.info("Sending threshold metric: {}", metricsNode.get("containerId").asText());
+            logger.info("Sended threshold metric: {}", metricsNode.get("containerId").asText());
         }
         else {
             logger.warn("존재하지 않는 id입니다.");

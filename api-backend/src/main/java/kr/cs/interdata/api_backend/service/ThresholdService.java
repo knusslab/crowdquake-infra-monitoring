@@ -17,6 +17,7 @@ import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefiniti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -225,6 +226,7 @@ public class ThresholdService {
      *
      * @param metric    하나의 id당 모든 메트릭이 들어있는 데이터
      */
+    @Async
     public void calcThreshold(String metric) {
         JsonNode metricsNode = parseJson(metric);
 

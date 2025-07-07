@@ -6,6 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Component
 public class MetricWebsocketSender {
 
@@ -13,6 +16,7 @@ public class MetricWebsocketSender {
     private static final Logger logger = LoggerFactory.getLogger(MetricWebsocketSender.class);
 
     private final MetricWebsocketHandler metricWebsocketHandler;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Autowired
     public MetricWebsocketSender(MetricWebsocketHandler metricWebsocketHandler) {
@@ -25,13 +29,15 @@ public class MetricWebsocketSender {
             return;
         }
 
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            String jsonString = objectMapper.writeValueAsString(metricData);
-            metricWebsocketHandler.sendMetricMessage(jsonString);
-        } catch (Exception e) {
-            logger.error("Failed to send metric message for Machine Error: {}", e.getMessage());
-        }
+        executorService.submit(() -> {
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                String jsonString = objectMapper.writeValueAsString(metricData);
+                metricWebsocketHandler.sendMetricMessage(jsonString);
+            } catch (Exception e) {
+                logger.error("Failed to send metric message for Machine Error: {}", e.getMessage());
+            }
+        });
     }
 
 

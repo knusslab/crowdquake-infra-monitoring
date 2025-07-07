@@ -1,5 +1,6 @@
 package kr.cs.interdata.api_backend.config;
 
+import kr.cs.interdata.api_backend.dto.ThresholdStore;
 import kr.cs.interdata.api_backend.entity.MetricsByType;
 import kr.cs.interdata.api_backend.entity.TargetType;
 import kr.cs.interdata.api_backend.repository.MetricsByTypeRepository;
@@ -13,12 +14,15 @@ public class DataInitializer implements CommandLineRunner {
 
     private final TargetTypeRepository targetTypeRepository;
     private final MetricsByTypeRepository metricsByTypeRepository;
+    private final ThresholdStore thresholdStore;
 
     @Autowired
     public DataInitializer(TargetTypeRepository targetTypeRepository,
-                           MetricsByTypeRepository metricsByTypeRepository) {
+                           MetricsByTypeRepository metricsByTypeRepository,
+                           ThresholdStore thresholdStore) {
         this.targetTypeRepository = targetTypeRepository;
         this.metricsByTypeRepository = metricsByTypeRepository;
+        this.thresholdStore = thresholdStore;
     }
 
     @Override
@@ -40,6 +44,18 @@ public class DataInitializer implements CommandLineRunner {
         insertMetricIfNotExists(containerType, "memory", "bytes", 20000000000.0);
         insertMetricIfNotExists(containerType, "disk", "bytes", 40000000.0);
         insertMetricIfNotExists(containerType, "network", "bytes", 300000.0);
+
+        // 임계값 ThresholdStore에 저장
+        thresholdStore.updateThreshold("host", "cpu", 85.0);
+        thresholdStore.updateThreshold("host", "memory", 20000000000.0);
+        thresholdStore.updateThreshold("host", "disk", 40000000.0);
+        thresholdStore.updateThreshold("host", "network", 300000.0);
+
+        thresholdStore.updateThreshold("container", "cpu", 85.0);
+        thresholdStore.updateThreshold("container", "memory", 20000000000.0);
+        thresholdStore.updateThreshold("container", "disk", 40000000.0);
+        thresholdStore.updateThreshold("container", "network", 300000.0);
+
     }
 
     /**

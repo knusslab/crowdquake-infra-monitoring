@@ -40,7 +40,7 @@ public class MachineInventoryService {
      * @param machineId 조회 또는 추가할 머신의 고유 ID
      * @return 해당 머신의 targetId (존재하지 않으면 추가 후 생성된 id 반환)
      */
-    public String changeMachineIdToTargetId(String type, String machineId) {
+    /* public String changeMachineIdToTargetId(String type, String machineId) {
         // machineId를 기반으로 MonitoredMachineInventory 조회
         Optional<MonitoredMachineInventory> machineInventory =
                 monitoredMachineInventoryRepository.findByMachineId(machineId);
@@ -53,7 +53,7 @@ public class MachineInventoryService {
                             .map(MonitoredMachineInventory::getId)
                             .orElse(null); // 만약 add 후에도 조회가 안 되면 null 반환
                 });
-    }
+    }*/
 
     /**
      *  - 새로운 머신(MonitoredMachineInventory)을 등록한다.
@@ -72,7 +72,7 @@ public class MachineInventoryService {
      * @param machine_id 등록할 머신의 고유 ID
      * @throws IllegalArgumentException type에 해당하는 TargetType이 존재하지 않을 경우 발생
      */
-    public void addMachine(String type, String machine_id) {
+    /* public void addMachine(String type, String machine_id) {
         // 이미 DB에 저장된 TargetType을 조회
         TargetType targetType = targetTypeRepository.findByType(type)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown type: " + type));
@@ -87,7 +87,7 @@ public class MachineInventoryService {
         monitoredMachineInventoryRepository.save(machine);
 
         logger.info("머신을 성공적으로 등록하였습니다: {} -> {}, {}", id, type, machine_id);
-    }
+    }*/
 
     /**
      *  - type당 고유 id를 순서대로 생성하는 메서드
@@ -95,7 +95,7 @@ public class MachineInventoryService {
      * @param type  머신의 타입을 구분하는 변수 (ex."host", "container")
      * @return      생성된 id를 리턴한다.
      */
-    public String generateNextId(String type) {
+    /* public String generateNextId(String type) {
         Pageable topOne = PageRequest.of(0, 1); // 가장 최근 하나만 가져옴
 
         //List<String> topIds = monitoredMachineInventoryRepository.findTopIdByType(type, topOne);
@@ -121,7 +121,7 @@ public class MachineInventoryService {
         }
         logger.info("set Id format number: {}{}", type,nextNumber);
         return String.format("%s%03d", type, nextNumber); // host004
-    }
+    }*/
 
     // 머신 모든 숫자 조회
     public int retrieveAllMachineNumber() {

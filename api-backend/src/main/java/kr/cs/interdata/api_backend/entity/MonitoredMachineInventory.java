@@ -20,13 +20,18 @@ import lombok.Setter;
 @Setter
 public class MonitoredMachineInventory {
 
+    //@Id
+    //private String id; // machine unique id (타입+숫자)
+
     @Id
-    private String id; // machine unique id (타입+숫자)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer number; // 누적 값
 
     @ManyToOne
     @JoinColumn(name = "typeId")
     private TargetType type; // machine's 타입
 
     private String machineId; // machine id (host와 container별 생성된 머신 id)
+    private String targetId;
 
 }

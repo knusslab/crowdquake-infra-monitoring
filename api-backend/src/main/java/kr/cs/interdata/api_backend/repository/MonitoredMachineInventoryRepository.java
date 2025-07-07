@@ -36,11 +36,11 @@ public interface MonitoredMachineInventoryRepository extends JpaRepository<Monit
      * @param pageable  페이징 정보 (최상위 1개 추출 등)
      * @return  id의 내림파순으로 정렬된 결과 리스트
      */
-    @Query("SELECT m.id " +
+    /* @Query("SELECT m.id " +
             "FROM MonitoredMachineInventory m " +
             "WHERE m.type = :type AND m.id IS NOT NULL " +
             "ORDER BY m.id DESC")
-    List<String> findTopIdByType(@Param("type") TargetType type, Pageable pageable);
+    List<String> findTopIdByType(@Param("type") TargetType type, Pageable pageable);*/
 
     /**
      *  - 주어진 machineId에 해당하는 MonitoredMachineInventory 엔티티를 조회힌다.

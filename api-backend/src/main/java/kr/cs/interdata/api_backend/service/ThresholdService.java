@@ -3,27 +3,30 @@ package kr.cs.interdata.api_backend.service;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
-import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefinitionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 public class ThresholdService {
+
+    private final List<DeferredResult<Object>> globalAnomalySubscribers = new CopyOnWriteArrayList<>();
+
 
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -33,15 +36,16 @@ public class ThresholdService {
 
     private final AbnormalDetectionService abnormalDetectionService;
     private final MonitoringDefinitionService monitoringDefinitionService;
-    private final MachineInventoryService machineInventoryService;
+    private final ThresholdStore thresholdStore;
+
 
     @Autowired
-    public ThresholdService(AbnormalDetectionService abnormalDetectionService,
-                            MonitoringDefinitionService monitoringDefinitionService,
-                            MachineInventoryService machineInventoryService) {
+    public ThresholdService(ThresholdStore thresholdStore,
+                            AbnormalDetectionService abnormalDetectionService,
+                            MonitoringDefinitionService monitoringDefinitionService) {
+        this.thresholdStore = thresholdStore;
         this.abnormalDetectionService = abnormalDetectionService;
         this.monitoringDefinitionService = monitoringDefinitionService;
-        this.machineInventoryService = machineInventoryService;
     }
 
     /**
@@ -68,34 +72,21 @@ public class ThresholdService {
         monitoringDefinitionService.updateThresholdByMetricName("disk", Double.parseDouble(dto.getDiskPercent()));
         monitoringDefinitionService.updateThresholdByMetricName("network", Double.parseDouble(dto.getNetworkTraffic()));
 
+        // 임계값 ThresholdStore에 저장
+        thresholdStore.updateThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateThreshold("host", "memory", Double.parseDouble(dto.getMemoryPercent()));
+        thresholdStore.updateThreshold("host", "disk", Double.parseDouble(dto.getDiskPercent()));
+        thresholdStore.updateThreshold("host", "network", Double.parseDouble(dto.getNetworkTraffic()));
+
+        thresholdStore.updateThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateThreshold("container", "memory", Double.parseDouble(dto.getMemoryPercent()));
+        thresholdStore.updateThreshold("container", "disk", Double.parseDouble(dto.getDiskPercent()));
+        thresholdStore.updateThreshold("container", "network", Double.parseDouble(dto.getNetworkTraffic()));
+
         // 응답 생성
         Map<String, String> response = new HashMap<>();
         response.put("message", "ok");
         return response;
-    }
-
-    /**
-     * 3. 특정 날짜의 임계값 초과 이력 조회
-     * @param date 조회할 날짜 정보
-     * @return 이력 리스트
-     */
-    public List<Map<String, Object>> getThresholdHistory(DateforHistory date) {
-        // Service를 통해 DB 조회
-        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByDate(date.getDate());
-
-        // 결과를 클라이언트에 맞게 매핑
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (AbnormalMetricLog log : logs) {
-            Map<String, Object> record = new HashMap<>();
-            record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-            record.put("targetId", log.getTargetId());
-            record.put("metricName", log.getMetricName());
-            record.put("threshold", log.getThreshold());
-            record.put("value", log.getValue().toString());
-            result.add(record);
-        }
-
-        return result;
     }
 
     /**
@@ -135,7 +126,7 @@ public class ThresholdService {
         return monitoringDefinitionService.findAllThresholdsGroupedByType();
     }
 
-    /**
+    /*
      *  5. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
      *    -> consumer에서 임계값을 조회해 이 프로젝트로 넘어왔을 때, 이는 임계값을 넘은 값이고,
      *          1. 이를 db에 저장한다.
@@ -147,7 +138,7 @@ public class ThresholdService {
      *        - value    : 임계값을 넘은 값
      *        - timestamp: 임계값을 넘은 시각
      */
-    public Object storeViolation(StoreViolation dto) {
+     public void storeViolation(StoreViolation dto) {
         //이상값이 생긴 로그를 저장한다.
         String type = dto.getType();
         String machineId = dto.getMachineId();
@@ -156,11 +147,8 @@ public class ThresholdService {
         String value = dto.getValue();
         LocalDateTime timestamp = dto.getTimestamp();
 
-        // machine_id로 넘어온 id를 고유id로 바꿔 저장한다.
-        String targetId = machineInventoryService.changeMachineIdToTargetId(type, machineId);
-
         abnormalDetectionService.storeViolation(
-                targetId,
+                machineId,
                 metricName,
                 threshold,
                 value,
@@ -169,7 +157,7 @@ public class ThresholdService {
 
         // 실시간 전송 준비
         AlertThreshold alert = new AlertThreshold();
-        alert.setTargetId(targetId);
+        alert.setMachineId(machineId);
         alert.setMetricName(metricName);
         alert.setValue(value);
         alert.setThreshold(threshold);
@@ -178,8 +166,6 @@ public class ThresholdService {
         // 실시간 전송 (비동기 처리)
         CompletableFuture.runAsync(() -> publishThreshold(alert));
 
-        //단, request에 대한 응답값은 없다.
-        return "ok";
     }
 
     /**
@@ -234,11 +220,157 @@ public class ThresholdService {
         }
     }
 
+
+    /**
+     *  - threshold를 통해 메트릭의 각 값을 계산하는 메서드
+     *
+     * @param metric    하나의 id당 모든 메트릭이 들어있는 데이터
+     */
+    @Async
+    public void calcThreshold(String metric) {
+        JsonNode metricsNode = parseJson(metric);
+
+        // type ID
+        String machineId = null;
+        String type = null;
+        if (metricsNode.has("hostId")) {
+            type = "host";
+            machineId = metricsNode.get("hostId").asText();
+        }
+        else if (metricsNode.has("containerId")) {
+            type = "container";
+            machineId = metricsNode.get("containerId").asText();
+        }
+        else {
+            logger.warn("Metric name not found.");
+        }
+
+        double metricValue = 0.0;
+        String metricName = null;
+        boolean isNormal = true;
+        LocalDateTime violationTime = LocalDateTime.now().withNano(0);
+
+        // CPU, Memory, Disk
+        for (int i = 0;i < 3;i++){
+            if (i == 0) {
+                metricName = "cpu";
+                metricValue = metricsNode.has("cpuUsagePercent")
+                        ? metricsNode.get("cpuUsagePercent").asDouble()
+                        : 0.0;
+            }
+            if (i == 1) {
+                metricName = "memory";
+                metricValue = metricsNode.has("memoryUsedBytes")
+                        ? metricsNode.get("memoryUsedBytes").asDouble()
+                        : 0.0;
+            }
+            if (i == 2) {
+                metricName = "disk";
+                double diskReadBytesDelta = metricsNode.has("diskReadBytesDelta")
+                        ? metricsNode.get("diskReadBytesDelta").asDouble()
+                        : 0.0;
+                double diskWriteBytesDelta = metricsNode.has("diskWriteBytesDelta")
+                        ? metricsNode.get("diskWriteBytesDelta").asDouble()
+                        : 0.0;
+                metricValue = diskReadBytesDelta + diskWriteBytesDelta;
+            }
+
+            // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
+            isNormal = processThreshold(type , machineId,
+                    metricName, metricValue, violationTime);
+        }
+
+        // Network
+        isNormal = true;
+        JsonNode networkNode = metricsNode.path("networkDelta");
+
+        metricName = "network";
+        if (!networkNode.isMissingNode() && networkNode.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> interfaces = networkNode.fields();
+            while (interfaces.hasNext()) {
+                Map.Entry<String, JsonNode> entry = interfaces.next();
+                String interfaceName = entry.getKey();
+                JsonNode interfaceData = entry.getValue();
+
+                double txBytesDelta = interfaceData.has("txBytesDelta")
+                        ? interfaceData.get("txBytesDelta").asDouble()
+                        : 0.0;
+                double rxBytesDelta = interfaceData.has("rxBytesDelta")
+                        ? interfaceData.get("rxBytesDelta").asDouble()
+                        : 0.0;
+                metricValue = txBytesDelta + rxBytesDelta;
+
+                // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
+                isNormal = processThreshold(type , machineId,
+                        metricName, metricValue, violationTime);
+
+                // 만약 어느 network에서 비정상값이 존재한다면
+                // 비정상적인 네트워크가 존재한다는 것만 알리고 iteration을 중단한다.
+                if (!isNormal) {
+                    break; // 하나라도 이상하면 network는 중단
+                }
+            }
+        } else {
+            logger.warn("{}: {} - network 데이터를 찾을 수 없습니다.", type, machineId);
+        }
+    }
+
+    public boolean processThreshold(String type, String machineId,
+                                    String metricName, Double value, LocalDateTime violationTime) {
+        // thresholdStore에서 해당 메트릭의 임계값을 가져옴
+        Double threshold = thresholdStore.getThreshold(type, metricName);
+
+        // 임계값을 정상적으로 받아오고 임계값 초과 시 전송
+        if (threshold != null && value > threshold) {
+            logger.warn("임계값 초과: {} -> {} = {} (임계값: {})", type, metricName, value, threshold);
+
+            //thresholdAlertService.sendThresholdViolation(type, machineId, metricName, threshold, value, violationTime);
+            StoreViolation storeViolation = new StoreViolation();
+            storeViolation.setType(type);
+            storeViolation.setMachineId(machineId);
+            storeViolation.setMetricName(metricName);
+            storeViolation.setValue(String.valueOf(value));
+            storeViolation.setThreshold(String.valueOf(threshold));
+            storeViolation.setTimestamp(LocalDateTime.now());
+
+            storeViolation(storeViolation);
+
+            return false;
+        }
+        // 임계값을 정상적으로 받아오고, 임계값이 초과되지 않음.
+        else if (threshold != null && (value < threshold || value.equals(threshold))) {
+            // do nothing
+        }
+        // 임계값을 정상적으로 받아오지 못함.
+        else {
+            logger.warn("임계값이 조회되지 않았습니다.");
+        }
+
+        return true;
+    }
+
+
     //test
     public Object hello() {
         Map<String, String> response = new HashMap<>();
         response.put("message", "hello!");
         return response;
+    }
+
+    // json 파싱
+    private JsonNode parseJson(String json) {
+        try {
+            return objectMapper.readTree(json);
+        } catch (Exception e) {
+            throw new InvalidJsonException("JSON 파싱 실패", e);
+        }
+    }
+
+    // 사용자 정의 예외
+    public static class InvalidJsonException extends RuntimeException {
+        public InvalidJsonException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
 }

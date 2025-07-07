@@ -1,15 +1,14 @@
-package kr.cs.interdata.consumer.infra;
+package kr.cs.interdata.api_backend.dto;
 
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *  머신 타입당 메트릭이름당 threshold를 저장하는 class
- *  ex) thresholdMap의 구성
+ *  (ex) thresholdMap의 구성
  *      [0] host -> [0] cpuUsage -> cpuUsage's threshold
  *               -> [1] memoryUsage -> memoryUsage's threshold
  *               -> [2] diskIO -> diskIO's threshold

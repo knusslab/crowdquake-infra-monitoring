@@ -1,6 +1,6 @@
-package kr.cs.interdata.consumer.config;
+package kr.cs.interdata.api_backend.config;
 
-import kr.cs.interdata.consumer.infra.MetricWebsocketHandler;
+import kr.cs.interdata.api_backend.infra.MetricWebsocketHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

@@ -18,8 +18,9 @@ public class MetricController {
 
     // consumer -> api-backend
     @PostMapping("/metrics")
-    public ResponseEntity<?> sendMetrics(@RequestBody String metric) {
-        return ResponseEntity.ok(metricService.sendMetric(metric));
+    public ResponseEntity<Void> sendMetrics(@RequestBody String metric) {
+        metricService.sendMetric(metric);
+        return ResponseEntity.ok().build();
     }
 
 

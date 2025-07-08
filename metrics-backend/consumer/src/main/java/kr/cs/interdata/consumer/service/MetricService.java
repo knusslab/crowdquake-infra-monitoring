@@ -33,12 +33,13 @@ public class MetricService {
                 .uri(url)
                 .bodyValue(metricData)
                 .retrieve()
-                .bodyToMono(Void.class)  // 응답은 없으므로 처리하지 않음
+                .bodyToMono(Void.class)   // 응답 본문 없음
                 .doOnError(error -> {
                     // 에러 로그 처리
                     logger.warn("메트릭 전송 실패: {}", error.getMessage());
                 })
                 .subscribe();  // 비동기 방식으로 호출
+                // 응답 사용하지 않음
     }
 
 }

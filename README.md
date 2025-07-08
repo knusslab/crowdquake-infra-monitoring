@@ -223,8 +223,8 @@ cors.allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마�
 # 개발 환경에서 테스트 시
 # 도커에 임시 MySQL DB를 생성했을 때 env.properties 설정
 DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
-DATABASE_USERNAME=monitoring_user
-DATABASE_PASSWORD=monitoring_pass
+DATABASE_USERNAME=<Username>(임의로 설정)
+DATABASE_PASSWORD=<Password>(임의로 설정)
 SOCKET_ALLOWED_ADDR=http://localhost:3000
 cors.allowed-origins=http://localhost:3000
 ```

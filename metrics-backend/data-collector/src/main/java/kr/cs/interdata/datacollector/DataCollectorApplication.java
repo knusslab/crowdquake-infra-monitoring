@@ -1,6 +1,7 @@
 package kr.cs.interdata.datacollector;
 
 import com.github.dockerjava.api.model.BlkioStatEntry;
+import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Statistics;
 import com.google.gson.Gson;
 import jakarta.annotation.PreDestroy;
@@ -14,22 +15,20 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 //컨테이너 내부에서 주기적으로 리소스(CPU, 메모리, 디스크, 네트워크 등) 사용량을 수집
 //카프카로 전송
 @SpringBootApplication(scanBasePackages = "kr.cs.interdata")
 public class DataCollectorApplication {
     public static void main(String[] args) {
-        //스프링 부트 애플리케이션 실행
         SpringApplication app = new SpringApplication(DataCollectorApplication.class);
         app.setWebApplicationType(org.springframework.boot.WebApplicationType.NONE);
         app.run(args);
     }
 }
 
+// 변경된 DataCollectorRunner
 @Component
 class DataCollectorRunner implements CommandLineRunner {
 
@@ -38,12 +37,14 @@ class DataCollectorRunner implements CommandLineRunner {
     private final KafkaProducerService kafkaProducerService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    //
-    // 클래스 필드에 이전 값을 저장할 맵 추가
-    private final Map<String, Long> previousReadBytes = new HashMap<>();
-    private final Map<String, Long> previousWriteBytes = new HashMap<>();
-    private final Map<String, Map<String, Long>> previousRxBytes = new HashMap<>();
-    private final Map<String, Map<String, Long>> previousTxBytes = new HashMap<>();
+    private final Map<String, Long> previousReadBytes = new ConcurrentHashMap<>();
+    private final Map<String, Long> previousWriteBytes = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Long>> previousRxBytes = new ConcurrentHashMap<>();
+    private final Map<String, Map<String, Long>> previousTxBytes = new ConcurrentHashMap<>();
+
+    private final ExecutorService pool = Executors.newFixedThreadPool(
+            Math.max(2, Runtime.getRuntime().availableProcessors())
+    );
 
     @Autowired
     public DataCollectorRunner(KafkaProducerService kafkaProducerService) {
@@ -52,170 +53,102 @@ class DataCollectorRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        boolean isSelf = "true".equalsIgnoreCase(System.getenv("EXCLUDE_SELF"));
-        logger.info("EXCLUDE_SELF = {}", isSelf);
-
-        if (isSelf) {
-            // 자기 자신 모니터링
-            scheduler.scheduleAtFixedRate(this::monitorSelf, 0, 1, TimeUnit.SECONDS);
-        } else {
-            // 다른 컨테이너 모니터링
-            scheduler.scheduleAtFixedRate(this::monitorOthers, 0, 1, TimeUnit.SECONDS);
-        }
+        scheduler.scheduleAtFixedRate(this::monitorContainersIndividually, 0, 1, TimeUnit.SECONDS);
     }
 
-    private void monitorSelf() {
-        try {
-            Gson gson = new Gson();
+    private void monitorContainersIndividually() {
+        DockerStatsCollector collector = new DockerStatsCollector();
+        List<Container> containers = collector.listAllContainers();
+        Gson gson = new Gson();
 
-            long currCpuUsageNano = ContainerResourceMonitor.getCpuUsageNano();
-            long[] diskIO = ContainerResourceMonitor.getDiskIO();
-            Map<String, Long[]> currNetStats = ContainerResourceMonitor.getNetworkStats();
+        for (Container container : containers) {
+            pool.submit(() -> {
+                try {
+                    String containerId = container.getId();
+                    StatsCallbackBlocking callback = new StatsCallbackBlocking();
+                    collector.getDockerClient().statsCmd(containerId).exec(callback);
+                    Statistics stats = callback.getStats();
+                    if (stats == null) return null;
 
-            Map<String, Object> resourceMap = ContainerResourceMonitor.collectContainerResourceRaw();
+                    Map<String, Object> result = new LinkedHashMap<>();
+                    result.put("type", "container");
+                    result.put("containerId", containerId);
 
-            Map<String, Object> resultJson = new LinkedHashMap<>();
-            resultJson.put("type", resourceMap.get("type"));
-            resultJson.put("containerId", resourceMap.get("containerId"));
-            resultJson.put("cpuUsageNano", currCpuUsageNano);
-            resultJson.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));
-            resultJson.put("diskReadBytes", diskIO[0]);
-            resultJson.put("diskWriteBytes", diskIO[1]);
-            resultJson.put("network", currNetStats);
+                    // CPU 계산
+                    Long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
+                    Long systemUsage = stats.getCpuStats().getSystemCpuUsage();
+                    Long precTotalUsage = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
+                    Long precSystemUsage = stats.getPreCpuStats().getSystemCpuUsage();
+                    Long cpuCount = stats.getCpuStats().getOnlineCpus();
 
-            String jsonPayload = gson.toJson(resultJson);
-            System.out.println("[SELF] " + jsonPayload);
-            kafkaProducerService.routeMessageBasedOnType(jsonPayload);
-        } catch (Exception e) {
-            logger.error("자기 자신 모니터링 중 오류", e);
-        }
-    }
+                    double cpuUsagePercent = 0.0;
+                    if (totalUsage != null && systemUsage != null &&
+                            precTotalUsage != null && precSystemUsage != null &&
+                            cpuCount != null && systemUsage > precSystemUsage) {
+                        double cpuDelta = totalUsage - precTotalUsage;
+                        double systemDelta = systemUsage - precSystemUsage;
+                        cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
+                    }
+                    result.put("cpuUsagePercent", cpuUsagePercent);
 
-    private void monitorOthers() {
-        try {
-            Gson gson = new Gson();
-            DockerStatsCollector collector = new DockerStatsCollector();
-            Map<String, Statistics> statsMap = collector.getAllContainerStats();
+                    // 메모리
+                    result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
 
-            for (Map.Entry<String, Statistics> entry : statsMap.entrySet()) {
-                String containerId = entry.getKey();
-                Statistics stats = entry.getValue();
-
-                Map<String, Object> result = new LinkedHashMap<>();
-                result.put("type", "container");
-                result.put("containerId", containerId);
-
-                // cpu
-                Long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
-                Long systemUsage = stats.getCpuStats().getSystemCpuUsage();
-                Long precTotalUsage = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
-                Long precSystemUsage = stats.getPreCpuStats().getSystemCpuUsage();
-                Long cpuCount = stats.getCpuStats().getOnlineCpus();
-
-                double cpuUsagePercent = 0.0;
-                if (totalUsage != null && systemUsage != null &&
-                        precTotalUsage != null && precSystemUsage != null &&
-                        cpuCount != null && systemUsage > precSystemUsage) {
-
-                    double cpuDelta = totalUsage - precTotalUsage;
-                    double systemDelta = systemUsage - precSystemUsage;
-                    cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
-                }
-                result.put("cpuUsageNano", totalUsage != null ? totalUsage : 0);
-                result.put("cpuUsagePercent", cpuUsagePercent);
-
-
-                // Memory usage
-                result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
-
-                // Disk I/O delta 계산
-                long read = 0, write = 0;
-                List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
-
-                if (ioStats != null) {
-                    for (BlkioStatEntry entry2 : ioStats) {
-                        String op = entry2.getOp();
-                        Long value = entry2.getValue();
-
-                        if ("Read".equalsIgnoreCase(op)) {
-                            read += value != null ? value : 0;
-                        } else if ("Write".equalsIgnoreCase(op)) {
-                            write += value != null ? value : 0;
+                    // 디스크 I/O
+                    long read = 0, write = 0;
+                    List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
+                    if (ioStats != null) {
+                        for (BlkioStatEntry io : ioStats) {
+                            String op = io.getOp();
+                            Long value = io.getValue();
+                            if ("Read".equalsIgnoreCase(op)) read += (value != null ? value : 0);
+                            else if ("Write".equalsIgnoreCase(op)) write += (value != null ? value : 0);
                         }
                     }
+                    result.put("diskReadBytesDelta", read - previousReadBytes.getOrDefault(containerId, 0L));
+                    result.put("diskWriteBytesDelta", write - previousWriteBytes.getOrDefault(containerId, 0L));
+                    previousReadBytes.put(containerId, read);
+                    previousWriteBytes.put(containerId, write);
+
+                    // 네트워크
+                    Map<String, Object> networkDelta = new LinkedHashMap<>();
+                    if (stats.getNetworks() != null) {
+                        stats.getNetworks().forEach((iface, net) -> {
+                            long rx = net.getRxBytes();
+                            long tx = net.getTxBytes();
+                            Map<String, Long> prev = previousRxBytes.getOrDefault(containerId, new ConcurrentHashMap<>());
+
+                            long rxDelta = rx - prev.getOrDefault(iface + ":rx", 0L);
+                            long txDelta = tx - prev.getOrDefault(iface + ":tx", 0L);
+
+                            Map<String, Object> ifaceData = new LinkedHashMap<>();
+                            ifaceData.put("rxBytesDelta", rxDelta);
+                            ifaceData.put("txBytesDelta", txDelta);
+
+                            networkDelta.put(iface, ifaceData);
+
+                            prev.put(iface + ":rx", rx);
+                            prev.put(iface + ":tx", tx);
+                            previousRxBytes.put(containerId, prev);
+                        });
+                    }
+                    result.put("networkDelta", networkDelta);
+
+                    String json = gson.toJson(result);
+                    logger.info("[MONITOR] {}", json);
+                    kafkaProducerService.routeMessageBasedOnType(json);
+                } catch (Exception e) {
+                    logger.error("컨테이너 stats 처리 오류", e);
                 }
-
-                long prevRead = previousReadBytes.getOrDefault(containerId, 0L);
-                long prevWrite = previousWriteBytes.getOrDefault(containerId, 0L);
-                long readDelta = read - prevRead;
-                long writeDelta = write - prevWrite;
-
-                result.put("diskReadBytesDelta", readDelta);
-                result.put("diskWriteBytesDelta", writeDelta);
-
-                previousReadBytes.put(containerId, read);
-                previousWriteBytes.put(containerId, write);
-
-                // Network delta + bps 계산
-                Map<String, Object> networkDelta = new LinkedHashMap<>();
-                if (stats.getNetworks() != null) {
-
-                    stats.getNetworks().forEach((iface, net) -> {
-                        long rx = net.getRxBytes();
-                        long tx = net.getTxBytes();
-
-                        Map<String, Long> prevRxTx = previousRxBytes.getOrDefault(containerId, new HashMap<>());
-                        long prevRx = prevRxTx.getOrDefault(iface + ":rx", 0L);
-                        long prevTx = prevRxTx.getOrDefault(iface + ":tx", 0L);
-
-                        long rxDelta = rx - prevRx;
-                        long txDelta = tx - prevTx;
-
-                        Map<String, Object> ifaceData = new LinkedHashMap<>();
-                        ifaceData.put("rxBytesDelta", rxDelta);
-                        ifaceData.put("txBytesDelta", txDelta);
-                        ifaceData.put("rxBps", rxDelta); // 1초 간격
-                        ifaceData.put("txBps", txDelta);
-
-                        networkDelta.put(iface, ifaceData);
-
-                        prevRxTx.put(iface + ":rx", rx);
-                        prevRxTx.put(iface + ":tx", tx);
-                        previousRxBytes.put(containerId, prevRxTx);
-                    });
-                }
-                else {
-                    Map<String, Object> dummy = new LinkedHashMap<>();
-                    dummy.put("rxBytesDelta", 0L);
-                    dummy.put("txBytesDelta", 0L);
-                    dummy.put("rxBps", 0L);
-                    dummy.put("txBps", 0L);
-                    networkDelta.put("lo", dummy); // 루프백 인터페이스 이름으로 처리
-                }
-                result.put("networkDelta", networkDelta);
-
-                String json = gson.toJson(result);
-                logger.info("[MONITOR-OTHERS : Complete] {}", json);
-                kafkaProducerService.routeMessageBasedOnType(json);
-            }
-
-        } catch (Exception e) {
-            logger.error("다른 컨테이너 모니터링 중 오류", e);
+                return null;
+            });
         }
     }
 
     @PreDestroy
     public void shutdown() {
-        logger.info("스케줄러 종료 중...");
         scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(3, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-            Thread.currentThread().interrupt();
-        }
+        pool.shutdown();
     }
 }
 

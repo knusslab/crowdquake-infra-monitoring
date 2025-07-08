@@ -4,6 +4,9 @@ services:
       context: .
       dockerfile: metrics-backend/data-collector/Dockerfile
     container_name: data-collector
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - TZ=Asia/Seoul
     ports:

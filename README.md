@@ -177,22 +177,20 @@ docker-compose -f docker-compose.collector.yml up -d --build
 ```bash
 # consumer/ ... /src/main/resources/properties/envfile.properties
 
-GROUP_ID=[kafka consumer group id]
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=localhost
-KAFKA_TOPIC_CONTAINER=container
-KAFKA_GROUP_ID_STORAGE_GROUP=[kafka consumer group id]
-API_BASE_URL=http://api-backend:8004
-SOCKET_ALLOWED_ADDR=http://localhost:3000 (임시, 프론트 주소가 있다면 해당 경로로 변경)
-
-# data-collector/ ... /src/main/resources/properties/envdc.properties
-DATACOLLECTOR_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host]
+KAFKA_TOPIC_CONTAINER=[kafka topic name for container]
+KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
+API_BASE_URL=http://api-backend:8004(필수)
 
 # localhost-data-collector/ ... /src/main/resources/properties/envldc.properties
-LOCALHOSTDATACOLLECTOR_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
 
 # producer/ ... /src/main/resources/properties/envp.properties
-PRODUCER_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
+KAFKA_TOPIC_CONTAINER=[kafka topic name for container] (단, consumer의 KAFKA_TOPIC_CONTAINER와 동일해야 함.)
 
 ```
 ---
@@ -204,7 +202,7 @@ PRODUCER_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
 DATABASE_URL=jdbc:mysql://<엔드포인트>/monitoring_db
 DATABASE_USERNAME=<Username>
 DATABASE_PASSWORD=<Password>
-
+SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,...
 cors.allowed-origins=<주소1>,<주소2>,...
 ```
 
@@ -214,7 +212,7 @@ cors.allowed-origins=<주소1>,<주소2>,...
 DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
 DATABASE_USERNAME=monitoring_user
 DATABASE_PASSWORD=monitoring_pass
-
+SOCKET_ALLOWED_ADDR=http://localhost:3000
 cors.allowed-origins=http://localhost:3000
 ```
 

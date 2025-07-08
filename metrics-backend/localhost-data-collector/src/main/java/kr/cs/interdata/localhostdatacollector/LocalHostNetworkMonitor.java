@@ -20,19 +20,6 @@ public class LocalHostNetworkMonitor {
         this.networkIFS = hal.getNetworkIFs();
     }
 
-    /**
-    public List<String> getMacAddresses() {
-        List<String> macs = new ArrayList<>();
-        for (NetworkIF net : networkIFS) {
-            String mac = net.getMacaddr();
-            if (mac != null && !mac.isEmpty() && !mac.equals("00:00:00:00:00:00")) {
-                macs.add(mac);
-            }
-        }
-        return macs;
-    }
-     **/
-
     public Map<String, Object> getNetworkInfoJson() {
         Map<String, Object> result = new LinkedHashMap<>();
         int idx = 0;

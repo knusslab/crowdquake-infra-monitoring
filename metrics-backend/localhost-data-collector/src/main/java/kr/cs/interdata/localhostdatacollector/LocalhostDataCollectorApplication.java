@@ -31,8 +31,11 @@ public class LocalhostDataCollectorApplication {
 @Component
 class KafkaProducerRunner implements CommandLineRunner {
 
-    @Value("${LOCALHOSTDATACOLLECTOR_BOOTSTRAP_SERVER}")
+    @Value("${BOOTSTRAP_SERVER}")
     private String kafkaBootstrapServer;
+
+    @Value("${KAFKA_TOPIC_HOST}")
+    private String kafkaTopicHost;
 
     @Override
     public void run(String... args) throws Exception {
@@ -47,7 +50,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         props.put("key.serializer", StringSerializer.class.getName());
         props.put("value.serializer", StringSerializer.class.getName());
 
-        String topic = "localhost"; // 원하는 토픽명으로 변경 가능
+        String topic = kafkaTopicHost;
 
         try (Producer<String, String> producer = new KafkaProducer<>(props)) {
             LocalHostResourceMonitor monitor = new LocalHostResourceMonitor();

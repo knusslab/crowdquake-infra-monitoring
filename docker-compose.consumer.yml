@@ -1,0 +1,20 @@
+services:
+  # Consumer 서비스 (metrics-backend/consumer)
+  consumer:
+    build:
+      context: .
+      dockerfile: metrics-backend/consumer/Dockerfile
+    container_name: consumer
+    environment:
+      - TZ=Asia/Seoul
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:8000"
+    networks:
+      - monitoring_network
+    restart: always
+
+networks:
+  monitoring_network:
+    external: true

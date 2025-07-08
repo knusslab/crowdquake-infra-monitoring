@@ -40,7 +40,7 @@ public class KafkaConsumerService {
      */
     @KafkaListener(
             topics = "${KAFKA_TOPIC_HOST}",
-            groupId = "${KAFKA_GROUP_ID_STORAGE_GROUP}",
+            groupId = "${KAFKA_CONSUMER_GROUP_ID}",
             containerFactory = "customContainerFactory"
     )
     public void batchListenerForHost(ConsumerRecords<String, String> records, Acknowledgment ack) {
@@ -81,7 +81,7 @@ public class KafkaConsumerService {
      */
     @KafkaListener(
             topics = "${KAFKA_TOPIC_CONTAINER}",
-            groupId = "${KAFKA_GROUP_ID_STORAGE_GROUP}",
+            groupId = "${KAFKA_CONSUMER_GROUP_ID}",
             containerFactory = "customContainerFactory"
     )
     public void batchListenerForContainer(ConsumerRecords<String, String> records, Acknowledgment ack) {

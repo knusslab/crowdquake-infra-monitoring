@@ -4,7 +4,8 @@
 **호스트 머신과 해당 서버에 속한 모든 컨테이너의 메트릭(자원 사용량 등)을 실시간으로 수집하고 모니터링할 수 있도록 설계된 시스템**입니다.
 
 Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 컨테이너 자원 데이터를 자동으로 수집하여 Kafka 클러스터로 전송합니다.  
-메인 컴퓨터에서는 Docker에서 실행된 backend가 Kafka에서 이 데이터를 받아 각 머신별 임계치 초과 여부를 계산하고,  
+중개 컴퓨터에서는 Docker에서 실행된 consumer가 Kafka에서 이 데이터를 받아 backend로 전송합니다. 
+메인 컴퓨터에서는 Docker에서 실행된 backend가 consumer에서 받아온 데이터를 사용해 실시간 메트릭 데이터를 전송하거나 각 머신별 임계치 초과 여부를 계산하고,  
 임계치 초과 시 실시간 알림을 전송하여 운영자가 신속하게 서버 상태를 모니터링하고 대응할 수 있도록 지원합니다.
 
 ---
@@ -31,11 +32,15 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 - **각 서버 컴퓨터**
   - collector (`docker-compose.collector.yml` 참고) 실행
-  - Kafka로 메트릭 데이터 전송
+  - host와 container의 메트릭을 수집해 Kafka로 메트릭 데이터 전송
+
+- **중개 컴퓨터(kafka cluster에 연결)**
+  - consumer (`docker-compose.consumer.yml` 참고) 실행
+  - kafka에서 데이터 수신 및 backend로 데이터 단방향 전송
 
 - **메인 컴퓨터**
   - backend (`docker-compose.backend.yml` 참고) 실행
-  - Kafka에서 데이터 수신 및 임계치 모니터링/알림
+  - 데이터 수신 및 메트릭 데이터 모니터링, 임계치 모니터링/알림
 
 ---
 
@@ -46,7 +51,7 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 # metrics-backend 모듈 설명
 
-`metrics-backend`는 컨테이너 및 호스트 머신에서 메트릭 데이터를 수집하고, Kafka를 통해 전송 및 처리하는 백엔드 시스템입니다. 이 프로젝트는 메트릭 수집 → Kafka 전송 → 데이터 처리의 흐름을 중심으로 구성되며, Docker 환경에서 실행됩니다.
+`metrics-backend`는 컨테이너 및 호스트 머신에서 메트릭 데이터를 수집하고, Kafka를 통해 전송 및 처리하는 백엔드 시스템입니다. 이 프로젝트는 메트릭 수집 → Kafka 전송 → 데이터 수집 및 전송의 흐름을 중심으로 구성되며, Docker 환경에서 실행됩니다.
 
 ## 📁 모듈 구성
 
@@ -60,13 +65,13 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
   수집된 데이터를 Kafka로 전송하는 Kafka 프로듀서 역할을 합니다.
 
 - **consumer**  
-  Kafka로부터 메트릭 데이터를 수신하며, 내부적으로 WebClient나 WebSocket을 활용해 데이터를 외부에 전송하는 기능도 수행합니다.
+  Kafka로부터 메트릭 데이터를 수신하며, 내부적으로 WebClient를 활용해 데이터를 backend에 전송하는 기능을 수행합니다.
 
 ---
 
 # api-backend 모듈 설명
 
-`api-backend`는 "Container-Monitoring-Limited-Http" 프로젝트에서 클라이언트(프론트엔드)와 다른 백엔드 서버(metrics-backend)로부터 API 요청을 받아 처리하며, 데이터베이스와 관련된 모든 작업을 담당하는 Java Spring 기반 서버입니다.  
+`api-backend`는 클라이언트(프론트엔드)와 다른 백엔드 서버(metrics-backend)로부터 API 요청을 받아 처리하며, 데이터베이스와 관련된 모든 작업을 담당하는 Java Spring 기반 서버입니다.  
 이 시스템은 데이터 저장·조회, 임계치 관리, 실시간 데이터 알림 등 다양한 API 기능을 제공하며, 클라이언트와 백엔드 간의 데이터 흐름을 중계하는 핵심 브릿지 역할을 수행합니다.
 
 주요 기능은 다음과 같습니다:
@@ -105,11 +110,14 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
     - metrics-backend/localhost-data-collector
     - metrics-backend/data-collector (의존성 존재:metrics-backend/producer)
 
-- docker-compose.backend.yml  
-  **kafka로 받아온 메트릭을 처리하는 컴퓨터의 도커에 설치해 실행시킵니다.**
+- docker-compose.consumer.yml  
+  **kafka cluster에서 메트릭을 받아오는 컴퓨터의 도커에 설치해 실행시킵니다.**
     - metrics-backend/consumer
-    - api-backend
-    - MySQL 데이터베이스
+
+- docker-compose.backend.yml  
+  **consumer로 받아온 메트릭을 처리하는 컴퓨터의 도커에 설치해 실행시킵니다.**
+  - api-backend
+  - MySQL 데이터베이스
 
 ---
 
@@ -150,19 +158,24 @@ docker network create monitoring_network
 #### 3. 각 docker-compose 실행 (터미널 이용 권장)
 
 
-- 3-1. 백엔드 + DB + consumer 실행
+- 3-1. 백엔드 + DB 실행
 ```bash
 docker-compose -f docker-compose.backend.yml up -d --build
 ```
 
-- 3-2. collector 측 실행 (각 장비 or 서버컴 등에서)
+- 3-2. consumer 실행
+```bash
+docker-compose -f docker-compose.consumer.yml up -d --build
+```
+
+- 3-3. collector 측 실행 (각 장비 or 서버컴 등에서)
 ```bash
 docker-compose -f docker-compose.collector.yml up -d --build
 ```
 
 
-- **순서대로 실행함을 강력히 권장합니다.**
-- **테스트를 위해 하나의 컴퓨터에 `docker-compose.collector.yml`, `docker-compose.backend.yml`를 함께 실행시키는 것도 가능합니다.**
+- **순서대로 실행함을 !강력히! 권장합니다.**
+- **테스트를 위해 하나의 컴퓨터에 `docker-compose.collector.yml`, `docker-compose.consumer.yml`, `docker-compose.backend.yml`를 함께 실행시키는 것도 가능합니다.**
 
 
 ---
@@ -177,22 +190,20 @@ docker-compose -f docker-compose.collector.yml up -d --build
 ```bash
 # consumer/ ... /src/main/resources/properties/envfile.properties
 
-GROUP_ID=[kafka consumer group id]
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=localhost
-KAFKA_TOPIC_CONTAINER=container
-KAFKA_GROUP_ID_STORAGE_GROUP=[kafka consumer group id]
-API_BASE_URL=http://api-backend:8004
-SOCKET_ALLOWED_ADDR=http://localhost:3000 (임시, 프론트 주소가 있다면 해당 경로로 변경)
-
-# data-collector/ ... /src/main/resources/properties/envdc.properties
-DATACOLLECTOR_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host]
+KAFKA_TOPIC_CONTAINER=[kafka topic name for container]
+KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
+API_BASE_URL=http://api-backend:8004(필수)
 
 # localhost-data-collector/ ... /src/main/resources/properties/envldc.properties
-LOCALHOSTDATACOLLECTOR_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
 
 # producer/ ... /src/main/resources/properties/envp.properties
-PRODUCER_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
+KAFKA_TOPIC_CONTAINER=[kafka topic name for container] (단, consumer의 KAFKA_TOPIC_CONTAINER와 동일해야 함.)
 
 ```
 ---
@@ -201,20 +212,20 @@ PRODUCER_BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
 
 ```bash
 # api-backend/ ... /src/main/resources/properties/env.properties
-DATABASE_URL=jdbc:mysql://<엔드포인트>/monitoring_db
+DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
 DATABASE_USERNAME=<Username>
 DATABASE_PASSWORD=<Password>
-
-cors.allowed-origins=<주소1>,<주소2>,...
+SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,... [소켓 통신을 허용할 클라이언트 주소(콤마로 구분)]
+cors.allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
 ```
 
 ```bash
-# 테스트 시
+# 개발 환경에서 테스트 시
 # 도커에 임시 MySQL DB를 생성했을 때 env.properties 설정
 DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
-DATABASE_USERNAME=monitoring_user
-DATABASE_PASSWORD=monitoring_pass
-
+DATABASE_USERNAME=<Username>(임의로 설정)
+DATABASE_PASSWORD=<Password>(임의로 설정)
+SOCKET_ALLOWED_ADDR=http://localhost:3000
 cors.allowed-origins=http://localhost:3000
 ```
 

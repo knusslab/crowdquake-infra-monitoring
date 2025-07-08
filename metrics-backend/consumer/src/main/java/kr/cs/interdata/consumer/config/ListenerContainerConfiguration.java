@@ -26,7 +26,7 @@ public class ListenerContainerConfiguration {
     @Value("${BOOTSTRAP_SERVER}")
     private String bootstrapServers;
 
-    @Value("${KAFKA_GROUP_ID_STORAGE_GROUP}")
+    @Value("${KAFKA_CONSUMER_GROUP_ID}")
     private String groupId;
 
     @Bean

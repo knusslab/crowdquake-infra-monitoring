@@ -155,7 +155,7 @@ public class LocalHostResourceMonitor {
         //모든 resource 정보를 json 형식으로 반환
         LocalHostNetworkMonitor networkMonitor = new LocalHostNetworkMonitor();
         Map<String, Object> jsonMap = new LinkedHashMap<>();
-        jsonMap.put("type","localhost");//타입 지정
+        jsonMap.put("type","host");//타입 지정
 
         jsonMap.put("hostId", getOrCreateHostId());//고유 id
         jsonMap.put("cpuUsagePercent", getCpuUsagePercent());
@@ -167,8 +167,6 @@ public class LocalHostResourceMonitor {
         jsonMap.put("diskFreeBytes", getFreeDiskBytes());
         jsonMap.put("diskReadBytes", getDiskReadBytes());
         jsonMap.put("diskWriteBytes", getDiskWriteBytes());
-        //jsonMap.put("diskReads", getDiskReadCount());
-        //jsonMap.put("diskWrites", getDiskWriteCount());
         jsonMap.put("network", networkMonitor.getNetworkInfoJson());
 
         return new Gson().toJson(jsonMap);//json 문자열로 변환

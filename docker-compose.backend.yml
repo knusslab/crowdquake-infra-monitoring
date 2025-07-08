@@ -42,33 +42,6 @@ services:
     depends_on:
       mysql-db:
         condition: service_healthy
-    healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:8004/actuator/health || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-
-  # Consumer 서비스 (metrics-backend/consumer)
-  consumer:
-    build:
-      context: .
-      dockerfile: metrics-backend/consumer/Dockerfile
-    container_name: consumer
-    environment:
-      - TZ=Asia/Seoul
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "8000:8000"
-    networks:
-      - monitoring_network
-    restart: always
-    depends_on:
-      mysql-db:
-        condition: service_healthy
-      api-backend:
-        condition: service_healthy
 
 networks:
   monitoring_network:

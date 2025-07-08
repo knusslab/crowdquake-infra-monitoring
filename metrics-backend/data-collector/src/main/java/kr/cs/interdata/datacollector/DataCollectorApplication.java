@@ -3,6 +3,7 @@ package kr.cs.interdata.datacollector;
 import com.github.dockerjava.api.model.BlkioStatEntry;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Statistics;
+import com.github.dockerjava.core.InvocationBuilder;
 import com.google.gson.Gson;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.producer.service.KafkaProducerService;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -41,6 +44,11 @@ class DataCollectorRunner implements CommandLineRunner {
     private final Map<String, Long> previousWriteBytes = new ConcurrentHashMap<>();
     private final Map<String, Map<String, Long>> previousRxBytes = new ConcurrentHashMap<>();
     private final Map<String, Map<String, Long>> previousTxBytes = new ConcurrentHashMap<>();
+    private final Map<String, Long> previousDiskReadBytes = new ConcurrentHashMap<>();
+    private final Map<String, Long> previousDiskWriteBytes = new ConcurrentHashMap<>();
+    private final Map<String, Long> previousTotalUsage = new ConcurrentHashMap<>();
+    private final Map<String, Long> previousSystemUsage = new ConcurrentHashMap<>();
+
 
     private final ExecutorService pool = Executors.newFixedThreadPool(
             Math.max(2, Runtime.getRuntime().availableProcessors())
@@ -65,9 +73,22 @@ class DataCollectorRunner implements CommandLineRunner {
             pool.submit(() -> {
                 try {
                     String containerId = container.getId();
-                    StatsCallbackBlocking callback = new StatsCallbackBlocking();
+
+//                    StatsCallbackBlocking callback = new StatsCallbackBlocking();
+//                    collector.getDockerClient().statsCmd(containerId).exec(callback);
+//                    Statistics stats = callback.getStats();
+//                    if (stats == null) return null;
+                    InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
                     collector.getDockerClient().statsCmd(containerId).exec(callback);
-                    Statistics stats = callback.getStats();
+
+                    Statistics stats;
+                    try {
+                        stats = callback.awaitResult();
+                        callback.close();
+                    } catch (RuntimeException | IOException e) {
+                        logger.error("컨테이너 stats 처리 오류", e);
+                        return null;
+                    }
                     if (stats == null) return null;
 
                     Map<String, Object> result = new LinkedHashMap<>();
@@ -77,19 +98,25 @@ class DataCollectorRunner implements CommandLineRunner {
                     // CPU 계산
                     Long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
                     Long systemUsage = stats.getCpuStats().getSystemCpuUsage();
-                    Long precTotalUsage = stats.getPreCpuStats().getCpuUsage().getTotalUsage();
-                    Long precSystemUsage = stats.getPreCpuStats().getSystemCpuUsage();
                     Long cpuCount = stats.getCpuStats().getOnlineCpus();
 
+                    long prevTotal = previousTotalUsage.getOrDefault(containerId, 0L);
+                    long prevSystem = previousSystemUsage.getOrDefault(containerId, 0L);
+
                     double cpuUsagePercent = 0.0;
-                    if (totalUsage != null && systemUsage != null &&
-                            precTotalUsage != null && precSystemUsage != null &&
-                            cpuCount != null && systemUsage > precSystemUsage) {
-                        double cpuDelta = totalUsage - precTotalUsage;
-                        double systemDelta = systemUsage - precSystemUsage;
+                    if (totalUsage != null && systemUsage != null && cpuCount != null &&
+                            systemUsage > prevSystem && totalUsage > prevTotal && cpuCount > 0) {
+                        double cpuDelta = totalUsage - prevTotal;
+                        double systemDelta = systemUsage - prevSystem;
                         cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
                     }
+
                     result.put("cpuUsagePercent", cpuUsagePercent);
+
+                    // cpu 이전 값 갱신
+                    previousTotalUsage.put(containerId, totalUsage != null ? totalUsage : 0L);
+                    previousSystemUsage.put(containerId, systemUsage != null ? systemUsage : 0L);
+
 
                     // 메모리
                     result.put("memoryUsedBytes", stats.getMemoryStats().getUsage());
@@ -98,17 +125,68 @@ class DataCollectorRunner implements CommandLineRunner {
                     long read = 0, write = 0;
                     List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
                     if (ioStats != null) {
-                        for (BlkioStatEntry io : ioStats) {
-                            String op = io.getOp();
-                            Long value = io.getValue();
-                            if ("Read".equalsIgnoreCase(op)) read += (value != null ? value : 0);
-                            else if ("Write".equalsIgnoreCase(op)) write += (value != null ? value : 0);
+                        for (BlkioStatEntry entry : ioStats) {
+                            String op = entry.getOp();
+                            Long value = entry.getValue();
+
+                            if ("Read".equalsIgnoreCase(op)) {
+                                read += (value != null ? value : 0);
+                            } else if ("Write".equalsIgnoreCase(op)) {
+                                write += (value != null ? value : 0);
+                            }
                         }
                     }
-                    result.put("diskReadBytesDelta", read - previousReadBytes.getOrDefault(containerId, 0L));
-                    result.put("diskWriteBytesDelta", write - previousWriteBytes.getOrDefault(containerId, 0L));
-                    previousReadBytes.put(containerId, read);
-                    previousWriteBytes.put(containerId, write);
+
+// 이전 값 가져오기
+                    long prevRead = previousDiskReadBytes.getOrDefault(containerId, 0L);
+                    long prevWrite = previousDiskWriteBytes.getOrDefault(containerId, 0L);
+
+// delta 계산
+                    long diskReadBytesDelta = read - prevRead;
+                    long diskWriteBytesDelta = write - prevWrite;
+
+                    result.put("diskReadBytesDelta", diskReadBytesDelta);
+                    result.put("diskWriteBytesDelta", diskWriteBytesDelta);
+
+// 이전 값 갱신
+                    previousDiskReadBytes.put(containerId, read);
+                    previousDiskWriteBytes.put(containerId, write);
+
+//                    long read = 0, write = 0;
+//                    List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
+//                    if (ioStats != null) {
+//                        for (BlkioStatEntry entry2 : ioStats) {
+//                            String op = entry2.getOp();
+//                            Long value = entry2.getValue();
+//
+//                            if ("Read".equalsIgnoreCase(op)) {
+//                                read += (value != null ? value : 0);
+//                            } else if ("Write".equalsIgnoreCase(op)) {
+//                                write += (value != null ? value : 0);
+//                            }
+//                        }
+//                    }
+//
+//                    long prevRead = previousReadBytes.getOrDefault(containerId, 0L);
+//                    long prevWrite = previousWriteBytes.getOrDefault(containerId, 0L);
+//                    result.put("diskReadBytesDelta", read - prevRead);
+//                    result.put("diskWriteBytesDelta", write - prevWrite);
+//                    previousReadBytes.put(containerId, read);
+//                    previousWriteBytes.put(containerId, write);
+//                    long read = 0, write = 0;
+//                    List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
+//                    if (ioStats != null) {
+//                        for (BlkioStatEntry io : ioStats) {
+//                            String op = io.getOp();
+//                            Long value = io.getValue();
+//                            if ("Read".equalsIgnoreCase(op)) read += (value != null ? value : 0);
+//                            else if ("Write".equalsIgnoreCase(op)) write += (value != null ? value : 0);
+//                        }
+//                    }
+//                    result.put("diskReadBytesDelta", read - previousReadBytes.getOrDefault(containerId, 0L));
+//                    result.put("diskWriteBytesDelta", write - previousWriteBytes.getOrDefault(containerId, 0L));
+//                    previousReadBytes.put(containerId, read);
+//                    previousWriteBytes.put(containerId, write);
 
                     // 네트워크
                     Map<String, Object> networkDelta = new LinkedHashMap<>();

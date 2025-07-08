@@ -63,12 +63,12 @@ public class ListenerContainerConfiguration {
 
             @Override
             public void onPartitionsRevoked(Collection<TopicPartition> partitions) {
-                System.out.println("리밸런싱 시작 - 반납된 파티션: " + partitions);
+                logger.info("리밸런싱 시작 - 반납된 파티션: {}", partitions);
             }
 
             @Override
             public void onPartitionsAssigned(Collection<TopicPartition> partitions) {
-                System.out.println("리밸런싱 완료 - 할당된 파티션: " + partitions);
+                logger.info("리밸런싱 완료 - 할당된 파티션: {}", partitions);
             }
 
             @Override

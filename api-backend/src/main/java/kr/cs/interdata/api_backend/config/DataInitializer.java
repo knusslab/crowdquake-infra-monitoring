@@ -35,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
                 .orElseGet(() -> targetTypeRepository.save(TargetType.builder().type("container").build()));
 
         // 이미 저장된 메트릭은 중복 방지
-        insertMetricIfNotExists(hostType, "cpu", "%", 85.0);
+        insertMetricIfNotExists(hostType, "cpu", "%", 0.85);
         insertMetricIfNotExists(hostType, "memory", "bytes", 20000000000.0);
         insertMetricIfNotExists(hostType, "disk", "bytes", 40000000.0);
         insertMetricIfNotExists(hostType, "network", "bytes", 300000.0);

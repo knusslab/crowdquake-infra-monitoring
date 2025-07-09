@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+// stakeholder
 @SpringBootApplication
 public class MachineDataCollectorApplication {
     public static void main(String[] args) {

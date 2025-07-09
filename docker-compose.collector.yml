@@ -1,9 +1,9 @@
 services:
-  data-collector:
+  container-data-collector:
     build:
       context: .
-      dockerfile: metrics-backend/data-collector/Dockerfile
-    container_name: data-collector
+      dockerfile: metrics-backend/container-data-collector/Dockerfile
+    container_name: container-data-collector
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -18,11 +18,11 @@ services:
       - monitoring_network
     restart: always
 
-  localhost-data-collector:
+  machine-data-collector:
     build:
       context: .
-      dockerfile: metrics-backend/localhost-data-collector/Dockerfile
-    container_name: localhost-data-collector
+      dockerfile: metrics-backend/machine-data-collector/Dockerfile
+    container_name: machine-data-collector
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
       - KAFKA_TOPIC_HOST=${KAFKA_TOPIC_HOST}

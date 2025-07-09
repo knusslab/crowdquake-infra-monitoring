@@ -1,13 +1,11 @@
 package kr.cs.interdata.localhostdatacollector;
 
-import kr.cs.interdata.localhostdatacollector.LocalHostNetworkMonitor;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.GlobalMemory;
 import oshi.hardware.HWDiskStore;
 import oshi.software.os.OSFileStore;
 import oshi.software.os.OperatingSystem;
-import oshi.hardware.NetworkIF;
 import com.google.gson.Gson;
 
 import java.io.IOException;

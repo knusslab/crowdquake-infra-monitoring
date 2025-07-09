@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,14 +18,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Service
 public class ThresholdService {
-
-    private final List<DeferredResult<Object>> globalAnomalySubscribers = new CopyOnWriteArrayList<>();
-
 
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
@@ -140,7 +135,6 @@ public class ThresholdService {
      */
      public void storeViolation(StoreViolation dto) {
         //이상값이 생긴 로그를 저장한다.
-        String type = dto.getType();
         String machineId = dto.getMachineId();
         String metricName = dto.getMetricName();
         String threshold = dto.getThreshold();
@@ -213,7 +207,7 @@ public class ThresholdService {
             try {
                 entry.getValue().send(jsonData);
             } catch (IOException e) {
-                logger.warn("Failed to send data to client. Removing emitter: " + entry.getKey());
+                logger.warn("Failed to send data to client. Removing emitter: {}", entry.getKey());
                 entry.getValue().completeWithError(e);
                 emitters.remove(entry.getKey());
             }
@@ -247,7 +241,7 @@ public class ThresholdService {
 
         double metricValue = 0.0;
         String metricName = null;
-        boolean isNormal = true;
+        boolean isNormal;
         LocalDateTime violationTime = LocalDateTime.now().withNano(0);
 
         // CPU, Memory, Disk
@@ -281,7 +275,6 @@ public class ThresholdService {
         }
 
         // Network
-        isNormal = true;
         JsonNode networkNode = metricsNode.path("networkDelta");
 
         metricName = "network";
@@ -289,7 +282,7 @@ public class ThresholdService {
             Iterator<Map.Entry<String, JsonNode>> interfaces = networkNode.fields();
             while (interfaces.hasNext()) {
                 Map.Entry<String, JsonNode> entry = interfaces.next();
-                String interfaceName = entry.getKey();
+
                 JsonNode interfaceData = entry.getValue();
 
                 double txBytesDelta = interfaceData.has("txBytesDelta")
@@ -315,39 +308,56 @@ public class ThresholdService {
         }
     }
 
+    /**
+     * 주어진 메트릭 값이 임계값(threshold)을 초과했는지 판단하고,
+     * 초과 시 로그 출력 및 위반 기록을 저장합니다.
+     *
+     * @param type           대상 종류 (예: host, container 등)
+     * @param machineId      대상 ID (hostId 또는 containerId)
+     * @param metricName     메트릭 이름 (예: cpuUsagePercent 등)
+     * @param value          현재 측정된 메트릭 값
+     * @param violationTime  측정 시각 또는 위반 발생 시각
+     * @return true  - 임계값 미초과 또는 임계값이 없음<br>
+     *         false - 임계값 초과 (위반 저장됨)
+     */
     public boolean processThreshold(String type, String machineId,
                                     String metricName, Double value, LocalDateTime violationTime) {
-        // thresholdStore에서 해당 메트릭의 임계값을 가져옴
+        // thresholdStore에서 해당 메트릭의 임계값을 조회
         Double threshold = thresholdStore.getThreshold(type, metricName);
 
-        // 임계값을 정상적으로 받아오고 임계값 초과 시 전송
+        // 1. 임계값이 존재하고, 메트릭이 임계값을 초과한 경우
         if (threshold != null && value > threshold) {
             logger.warn("임계값 초과: {} -> {} = {} (임계값: {})", type, metricName, value, threshold);
 
-            //thresholdAlertService.sendThresholdViolation(type, machineId, metricName, threshold, value, violationTime);
+            // 위반 정보 객체 생성 및 필드 설정
             StoreViolation storeViolation = new StoreViolation();
             storeViolation.setType(type);
             storeViolation.setMachineId(machineId);
             storeViolation.setMetricName(metricName);
             storeViolation.setValue(String.valueOf(value));
             storeViolation.setThreshold(String.valueOf(threshold));
-            storeViolation.setTimestamp(LocalDateTime.now());
+            storeViolation.setTimestamp(violationTime);
 
+            // 위반 기록 저장
             storeViolation(storeViolation);
 
             return false;
         }
-        // 임계값을 정상적으로 받아오고, 임계값이 초과되지 않음.
+
+        // 2. 임계값은 존재하지만, 메트릭이 초과하지 않은 경우
         else if (threshold != null && (value < threshold || value.equals(threshold))) {
-            // do nothing
+            // 조건 충족하지 않음 → 아무 작업도 하지 않음
         }
-        // 임계값을 정상적으로 받아오지 못함.
+
+        // 3. 임계값 자체가 존재하지 않는 경우
         else {
             logger.warn("임계값이 조회되지 않았습니다.");
         }
 
+        // 임계값을 초과하지 않았거나, 임계값이 존재하지 않을 때 true 반환
         return true;
     }
+
 
 
     //test

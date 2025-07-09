@@ -1,5 +1,4 @@
 services:
-  # MySQL DB 서비스
   mysql-db:
     image: mysql:8.0
     container_name: mysql-db
@@ -7,11 +6,11 @@ services:
     ports:
       - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: 1234
+      MYSQL_ROOT_PASSWORD: ${DATABASE_ROOT_PASSWORD}
       MYSQL_DATABASE: monitoring_db
-      MYSQL_USER: monitoring_user
-      MYSQL_PASSWORD: monitoring_pass
-      TZ: Asia/Seoul
+      MYSQL_USER: ${DATABASE_USERNAME}
+      MYSQL_PASSWORD: ${DATABASE_PASSWORD}
+      TZ: ${TZ}
     volumes:
       - ./db/mysql/data:/var/lib/mysql
       - ./db/mysql/config:/etc/mysql/conf.d
@@ -19,24 +18,25 @@ services:
     networks:
       - monitoring_network
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$${DATABASE_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # API Backend 서비스
   api-backend:
     build:
-      context: .                     # settings.gradle이 있는 루트
+      context: .
       dockerfile: api-backend/Dockerfile
     container_name: api-backend
     ports:
       - "8004:8004"
     environment:
-      DATABASE_URL: jdbc:mysql://mysql-db:3306/monitoring_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
-      DATABASE_USERNAME: monitoring_user
-      DATABASE_PASSWORD: monitoring_pass
-      TZ: Asia/Seoul
+      - TZ=${TZ}
+      - DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db?useSSL=false&allowPublicKeyRetrieval=true
+      - DATABASE_USERNAME=${DATABASE_USERNAME}
+      - DATABASE_PASSWORD=${DATABASE_PASSWORD}
+      - SOCKET_ALLOWED_ADDR=${SOCKET_ALLOWED_ADDR}
+      - cors-allowed-origins=${cors-allowed-origins}
     networks:
       - monitoring_network
     depends_on:

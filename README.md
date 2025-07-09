@@ -55,10 +55,10 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 ## 📁 모듈 구성
 
-- **data-collector**  
+- **container-data-collector**  
   컨테이너 머신의 자원 사용 데이터를 수집합니다.
 
-- **localhost-data-collector**  
+- **machine-data-collector**  
   호스트 머신의 자원 사용 데이터를 수집합니다.
 
 - **producer**  
@@ -136,7 +136,7 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 
 #### 1. 환경설정
-- 1-1. metrics-backend모듈의 각 모듈들과 api-backend모듈에 환경설정(ex. env파일생성)을 해준다.
+- 1-1. 폴더 최상위 루트에 .env파일을 만들어 환경설정을 해준다.
     - 환경설정은 아래의 **💻 환경설정** 부분을 참고하세요!
 
 ---
@@ -181,52 +181,19 @@ docker-compose -f docker-compose.collector.yml up -d --build
 ---
 
 ## 💻 환경설정
-- 💡 주석으로 달아놓은 각 경로에 없는 폴더 및 파일이 없다면 **반드시** 새로 생성합니다.
-
----
-
-### 🏷️ metrics-backend 환경설정
-
+- 💡 최상위 경로에 .env 파일이 없다면 **반드시** 새로 생성합니다.
 ```bash
-# consumer/ ... /src/main/resources/properties/envfile.properties
-
+TZ=Asia/Seoul(변경 가능)
+DATABASE_ROOT_PASSWORD=<Root-Password>(임의로 설정)
+DATABASE_USERNAME=<Username>(임의로 설정)
+DATABASE_PASSWORD=<Password>(임의로 설정)
+SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,... [소켓 통신을 허용할 클라이언트 주소(콤마로 구분)]
+cors-allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
 KAFKA_TOPIC_HOST=[kafka topic name for host]
 KAFKA_TOPIC_CONTAINER=[kafka topic name for container]
 KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
 API_BASE_URL=http://api-backend:8004(필수)
-
-# localhost-data-collector/ ... /src/main/resources/properties/envldc.properties
-BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
-
-# producer/ ... /src/main/resources/properties/envp.properties
-BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=[kafka topic name for host] (단, consumer의 KAFKA_TOPIC_HOST와 동일해야 함.)
-KAFKA_TOPIC_CONTAINER=[kafka topic name for container] (단, consumer의 KAFKA_TOPIC_CONTAINER와 동일해야 함.)
-
-```
----
-
-### 🏷️ api-backend 환경설정
-
-```bash
-# api-backend/ ... /src/main/resources/properties/env.properties
-DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
-DATABASE_USERNAME=<Username>
-DATABASE_PASSWORD=<Password>
-SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,... [소켓 통신을 허용할 클라이언트 주소(콤마로 구분)]
-cors.allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
-```
-
-```bash
-# 개발 환경에서 테스트 시
-# 도커에 임시 MySQL DB를 생성했을 때 env.properties 설정
-DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
-DATABASE_USERNAME=<Username>(임의로 설정)
-DATABASE_PASSWORD=<Password>(임의로 설정)
-SOCKET_ALLOWED_ADDR=http://localhost:3000
-cors.allowed-origins=http://localhost:3000
 ```
 
 ---

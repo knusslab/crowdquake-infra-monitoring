@@ -11,10 +11,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Slf4j
 @Service
@@ -44,7 +40,6 @@ public class KafkaConsumerService {
             containerFactory = "customContainerFactory"
     )
     public void batchListenerForHost(ConsumerRecords<String, String> records, Acknowledgment ack) {
-        List<Mono<Void>> asyncTasks = new ArrayList<>(); // 비동기 작업을 저장할 리스트
 
         for (ConsumerRecord<String, String> record : records) {
             String json = record.value();

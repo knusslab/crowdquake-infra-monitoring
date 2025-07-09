@@ -8,7 +8,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  *  - 웹 애플리케이션의 CORS(Cross-Origin Resource Sharing) 정책을 설정하는 클래스
- *
  *  - 서버의 모든 엔드포인트("/**")에 대해 CORS를 허용합니다.
  *  - 허용 Origin: (React 프론트엔드 서버 주소)
  *  - 허용 HTTP 메서드: GET, POST, PUT,DELETE

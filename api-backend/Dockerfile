@@ -17,7 +17,6 @@ RUN find /app -name "*.jar"
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-RUN apt-get update && apt-get install -y curl
 
 COPY --from=build /app/api-backend/build/libs/api-backend-0.0.1-SNAPSHOT.jar app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

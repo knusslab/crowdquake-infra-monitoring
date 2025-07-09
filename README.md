@@ -149,28 +149,47 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 docker volume create mysql-db
 ```
 
-- 2-2. 네트워크 **최초 1회** 생성해준다.
+---
+#### 3. 해당 컴퓨터에 시스템을 올리기 전 이미지 파일 생성 단계
+-**3-1. ~ 3-4.의 단계는 해당 프로젝트 폴더의 최상위 루트에서 실행시킵니다.**
+
+- 4-1. 이미지 : isslab/im-api-backend 생성
 ```bash
-docker network create monitoring_network
+docker build -t isslab/im-api-backend:latest -f api-backend/Dockerfile .
+```
+
+- 4-2. 이미지 : isslab/im-metrics-consumer 생성
+```bash
+docker build -t isslab/im-metrics-consumer:latest -f metrics-backend/consumer/Dockerfile .
+```
+
+- 4-3. 이미지 : isslab/im-host-metrics-collector 생성
+```bash
+docker build -t isslab/im-host-metrics-collector:latest -f metrics-backend/machine-data-collector/Dockerfile .
+```
+
+- 4-4. 이미지 : isslab/im-container-metrics-collector 생성
+```bash
+docker build -t isslab/im-container-metrics-collector:latest -f metrics-backend/container-data-collector/Dockerfile .
 ```
 
 ---
-#### 3. 각 docker-compose 실행 (터미널 이용 권장)
+#### 4. 각 해당 컴퓨터에서 각 docker-compose 실행 
 
 
-- 3-1. 백엔드 + DB 실행
+- 4-1. 백엔드 + DB 실행
 ```bash
-docker-compose -f docker-compose.backend.yml up -d --build
+docker-compose -f docker-compose.backend.yml up -d
 ```
 
-- 3-2. consumer 실행
+- 4-2. consumer 실행
 ```bash
-docker-compose -f docker-compose.consumer.yml up -d --build
+docker-compose -f docker-compose.consumer.yml up -d
 ```
 
-- 3-3. collector 측 실행 (각 장비 or 서버컴 등에서)
+- 4-3. collector 측 실행 (각 장비 or 서버컴 등에서)
 ```bash
-docker-compose -f docker-compose.collector.yml up -d --build
+docker-compose -f docker-compose.collector.yml up -d
 ```
 
 

@@ -107,8 +107,8 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 - docker-compose.collector.yml  
   **메트릭을 수집하려는 컴퓨터들의 도커에 설치해 실행시킵니다.**
-    - metrics-backend/localhost-data-collector
-    - metrics-backend/data-collector (의존성 존재:metrics-backend/producer)
+    - metrics-backend/machine-data-collector
+    - metrics-backend/container-data-collector (의존성 존재:metrics-backend/producer)
 
 - docker-compose.consumer.yml  
   **kafka cluster에서 메트릭을 받아오는 컴퓨터의 도커에 설치해 실행시킵니다.**

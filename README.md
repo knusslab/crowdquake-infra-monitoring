@@ -216,7 +216,7 @@ DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
 DATABASE_USERNAME=<Username>
 DATABASE_PASSWORD=<Password>
 SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,... [소켓 통신을 허용할 클라이언트 주소(콤마로 구분)]
-cors.allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
+cors-allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
 ```
 
 ```bash
@@ -226,7 +226,7 @@ DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db
 DATABASE_USERNAME=<Username>(임의로 설정)
 DATABASE_PASSWORD=<Password>(임의로 설정)
 SOCKET_ALLOWED_ADDR=http://localhost:3000
-cors.allowed-origins=http://localhost:3000
+cors-allowed-origins=http://localhost:3000
 ```
 
 ---

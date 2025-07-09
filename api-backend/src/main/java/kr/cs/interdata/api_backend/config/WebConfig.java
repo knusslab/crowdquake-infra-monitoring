@@ -17,7 +17,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig {
 
     // env.properties에서 콤마로 구분된 Origin 목록을 배열로 주입받음
-    @Value("${cors.allowed-origins}")
+    @Value("${cors-allowed-origins}")
     private String[] allowedOrigins;
 
     /**

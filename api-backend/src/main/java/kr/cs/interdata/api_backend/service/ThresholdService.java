@@ -358,15 +358,6 @@ public class ThresholdService {
         return true;
     }
 
-
-
-    //test
-    public Object hello() {
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "hello!");
-        return response;
-    }
-
     // json 파싱
     private JsonNode parseJson(String json) {
         try {

@@ -1,0 +1,38 @@
+services:
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    env_file:
+      - .env
+    volumes:
+      - ./db/mysql/data:/var/lib/mysql
+      - ./db/mysql/config:/etc/mysql/conf.d
+      - ./db/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - monitoring_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$$${DATABASE_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-backend:
+    image: isslab/im-api-backend
+    container_name: api-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8004:8004"
+    networks:
+      - monitoring_network
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+networks:
+  monitoring_network:
+    driver: bridge

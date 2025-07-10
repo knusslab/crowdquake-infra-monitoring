@@ -13,13 +13,10 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
 @EnableWebSocket
 public class WebsocketConfig implements WebSocketConfigurer {
 
-    @Value("${SOCKET_ALLOWED_ADDR}")
-    private String addr;
-
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         // 웹소켓 엔드포인트: /ws/metrics
         registry.addHandler(new MetricWebsocketHandler(), "/ws/metrics")
-                .setAllowedOrigins(addr);
+                .setAllowedOrigins("*");
     }
 }

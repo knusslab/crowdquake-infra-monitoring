@@ -33,7 +33,6 @@ services:
       - DATABASE_URL=jdbc:mysql://mysql-db:3306/monitoring_db?useSSL=false&allowPublicKeyRetrieval=true
       - DATABASE_USERNAME=${DATABASE_USERNAME}
       - DATABASE_PASSWORD=${DATABASE_PASSWORD}
-      - SOCKET_ALLOWED_ADDR=${SOCKET_ALLOWED_ADDR}
       - cors-allowed-origins=${cors-allowed-origins}
     networks:
       - monitoring_network

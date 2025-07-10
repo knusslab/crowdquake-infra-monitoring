@@ -40,3 +40,4 @@ db
 db/mysql/data/
 
 .env
+images/

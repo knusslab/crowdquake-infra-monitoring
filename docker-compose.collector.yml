@@ -1,8 +1,6 @@
 services:
   container-data-collector:
-    build:
-      context: .
-      dockerfile: metrics-backend/container-data-collector/Dockerfile
+    image: isslab/im-container-metrics-collector
     container_name: container-data-collector
     user: root
     volumes:
@@ -19,9 +17,7 @@ services:
     restart: always
 
   machine-data-collector:
-    build:
-      context: .
-      dockerfile: metrics-backend/machine-data-collector/Dockerfile
+    image: isslab/im-host-metrics-collector
     container_name: machine-data-collector
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
@@ -35,4 +31,4 @@ services:
 
 networks:
   monitoring_network:
-    external: true
+    driver: bridge

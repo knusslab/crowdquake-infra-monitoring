@@ -1,0 +1,9 @@
+services:
+  # Consumer 서비스 (metrics-backend/consumer)
+  consumer:
+    image: isslab/im-metrics-consumer
+    container_name: consumer
+    network_mode: host
+    env_file:
+      - .env
+    restart: unless-stopped

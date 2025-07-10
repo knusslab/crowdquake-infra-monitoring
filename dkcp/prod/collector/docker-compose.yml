@@ -1,0 +1,19 @@
+services:
+  container-data-collector:
+    image: isslab/im-container-metrics-collector
+    container_name: container-data-collector
+    network_mode: host
+    env_file:
+      - .env
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  machine-data-collector:
+    image: isslab/im-host-metrics-collector
+    container_name: machine-data-collector
+    network_mode: host
+    env_file:
+      - .env
+    restart: unless-stopped

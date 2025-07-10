@@ -80,7 +80,6 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 - 머신(Host, Container) 정보 및 임계치(Threshold) 초과 데이터 관리
 - SSE(Server-Sent Events) 방식으로 임계치 초과 데이터를 클라이언트에 실시간 전달
 - 날짜별 임계치 초과 데이터 조회, 임계치 설정/조회 등 다양한 API 제공
-- 다른 백엔드 서버(metrics-backend) API 호출 시 캐시를 활용한 고유 ID 치환 및 데이터 중계
 - 클라이언트와 백엔드 서버 간 데이터 흐름을 중계하는 브릿지 역할
 
 ## 📁 api-backend 주요 기능 및 구조
@@ -90,9 +89,6 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 - **임계치(Threshold) 관리**  
   머신별 임계치 설정/조회, 임계치 초과 데이터 실시간 알림(SSE) 제공
-
-- **API 중계 및 캐싱**  
-  metrics-backend 등 외부 백엔드 API 호출 시, 캐시를 활용한 고유 ID 치환 및 데이터 중계
 
 - **실시간 알림**  
   임계치 초과 발생 시 SSE를 통해 클라이언트에 알림 전송
@@ -140,37 +136,46 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
     - 환경설정은 아래의 **💻 환경설정** 부분을 참고하세요!
 
 ---
+#### 2. 해당 컴퓨터에 시스템을 올리기 전 이미지 파일 생성 단계
+-**2-1. ~ 2-4.의 단계는 해당 프로젝트 폴더의 최상위 루트에서 실행시킵니다.**
 
-#### 2. Docker 실행 전 필수 준비 단계 (터미널 이용 권장)
-
-- 2-1. DB 영구 저장을 위해 **최초 1회** 볼륨 생성해준다.
-    - ※ 기존에 있는 DB를 써야한다면, DB설정은 아래의 **🏷️ api-backend 환경설정** 을 참고하세요.
+- 2-1. 이미지 : isslab/im-api-backend 생성
 ```bash
-docker volume create mysql-db
+docker build -t isslab/im-api-backend:latest -f api-backend/Dockerfile .
 ```
 
-- 2-2. 네트워크 **최초 1회** 생성해준다.
+- 2-2. 이미지 : isslab/im-metrics-consumer 생성
 ```bash
-docker network create monitoring_network
+docker build -t isslab/im-metrics-consumer:latest -f metrics-backend/consumer/Dockerfile .
+```
+
+- 2-3. 이미지 : isslab/im-host-metrics-collector 생성
+```bash
+docker build -t isslab/im-host-metrics-collector:latest -f metrics-backend/machine-data-collector/Dockerfile .
+```
+
+- 2-4. 이미지 : isslab/im-container-metrics-collector 생성
+```bash
+docker build -t isslab/im-container-metrics-collector:latest -f metrics-backend/container-data-collector/Dockerfile .
 ```
 
 ---
-#### 3. 각 docker-compose 실행 (터미널 이용 권장)
+#### 3. 각 해당 컴퓨터에서 각 docker-compose 실행 
 
 
 - 3-1. 백엔드 + DB 실행
 ```bash
-docker-compose -f docker-compose.backend.yml up -d --build
+docker-compose -f docker-compose.backend.yml up -d
 ```
 
 - 3-2. consumer 실행
 ```bash
-docker-compose -f docker-compose.consumer.yml up -d --build
+docker-compose -f docker-compose.consumer.yml up -d
 ```
 
 - 3-3. collector 측 실행 (각 장비 or 서버컴 등에서)
 ```bash
-docker-compose -f docker-compose.collector.yml up -d --build
+docker-compose -f docker-compose.collector.yml up -d
 ```
 
 
@@ -187,8 +192,7 @@ TZ=Asia/Seoul(변경 가능)
 DATABASE_ROOT_PASSWORD=<Root-Password>(임의로 설정)
 DATABASE_USERNAME=<Username>(임의로 설정)
 DATABASE_PASSWORD=<Password>(임의로 설정)
-SOCKET_ALLOWED_ADDR=<주소1>,<주소2>,... [소켓 통신을 허용할 클라이언트 주소(콤마로 구분)]
-cors-allowed-origins=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
+CORS_ALLOWED_ORIGINS=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
 KAFKA_TOPIC_HOST=[kafka topic name for host]
 KAFKA_TOPIC_CONTAINER=[kafka topic name for container]

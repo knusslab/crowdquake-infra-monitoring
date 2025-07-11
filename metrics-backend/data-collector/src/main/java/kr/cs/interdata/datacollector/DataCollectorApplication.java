@@ -145,7 +145,8 @@ class KafkaProducerRunner implements CommandLineRunner {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("type", "host");
-        result.put("hostId", hostId);
+        //result.put("hostId", hostId);
+        result.put("hostId", resourceMap.get("hostId"));
         //result.put("name", hostName);
         try {
             hostName = java.net.InetAddress.getLocalHost().getHostName();

@@ -149,14 +149,10 @@ docker build -t isslab/im-api-backend:latest -f api-backend/Dockerfile .
 docker build -t isslab/im-metrics-consumer:latest -f metrics-backend/consumer/Dockerfile .
 ```
 
-- 2-3. 이미지 : isslab/im-host-metrics-collector 생성
+- 2-3. 이미지 : isslab/im-data-collector 생성
 ```bash
-docker build -t isslab/im-host-metrics-collector:latest -f metrics-backend/machine-data-collector/Dockerfile .
-```
+docker build -t isslab/im-data-collector:latest -f metrics-backend/data-collector/Dockerfile .
 
-- 2-4. 이미지 : isslab/im-container-metrics-collector 생성
-```bash
-docker build -t isslab/im-container-metrics-collector:latest -f metrics-backend/container-data-collector/Dockerfile .
 ```
 
 ---

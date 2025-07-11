@@ -4,6 +4,8 @@ import kr.cs.interdata.api_backend.entity.ContainerInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import java.util.Optional;
+
 public interface ContainerInventoryRepository extends JpaRepository<ContainerInventory, Integer> {
 
     /**
@@ -23,4 +25,6 @@ public interface ContainerInventoryRepository extends JpaRepository<ContainerInv
      * @return  해당 조건들을 모두 만족하는 row가 있으면 true, 없으면 false
      */
     boolean existsByHostNameAndContainerIdAndContainerName(String hostName, String containerId, String containerName);
+
+    Optional<ContainerInventory> findByHostNameAndContainerName(String hostName, String containerName);
 }

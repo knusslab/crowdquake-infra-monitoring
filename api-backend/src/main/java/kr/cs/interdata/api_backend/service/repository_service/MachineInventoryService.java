@@ -92,29 +92,39 @@ public class MachineInventoryService {
                 String containerName = containerNode.path("name").asText(); // ex. "app1"
 
                 // containerInventory에 있는지 없는지 판별
-                if(!containerInventoryRepository.existsByHostNameAndContainerIdAndContainerName(
-                        hostName,
-                        containerId,
-                        containerName))
-                {
-                    Optional<TargetType> optionalType = targetTypeRepository.findByType("container");
-                    TargetType type;
-                    if (optionalType.isPresent()) {
-                        type = optionalType.get();
-                    } else {
-                        // 없으면 새로 생성
-                        type = TargetType.builder().type("container").build();
-                        targetTypeRepository.save(type);
-                    }
+                // 1. (hostName, containerId, containerName) 조합이 있는지 확인
+                if (!containerInventoryRepository.existsByHostNameAndContainerIdAndContainerName(
+                        hostName, containerId, containerName)) {
 
-                    // containerInventory에 저장
-                    ContainerInventory containerInventory = new ContainerInventory();
-                    containerInventory.setType(type);
-                    containerInventory.setHostName(hostName);
-                    containerInventory.setContainerId(containerId);
-                    containerInventory.setContainerName(containerName);
-                    containerInventoryRepository.save(containerInventory);
+                    // 2. (hostName, containerName) 조합이 있는지 확인
+                    Optional<ContainerInventory> existingInventory =
+                            containerInventoryRepository.findByHostNameAndContainerName(hostName, containerName);
+
+                    if (existingInventory.isPresent()) {
+                        // 3. 있으면 containerId 덮어씌우고 저장
+                        ContainerInventory containerInventory = existingInventory.get();
+                        containerInventory.setContainerId(containerId);
+                        containerInventoryRepository.save(containerInventory);
+                    } else {
+                        // 4. 없으면 새로 생성
+                        Optional<TargetType> optionalType = targetTypeRepository.findByType("container");
+                        TargetType type;
+                        if (optionalType.isPresent()) {
+                            type = optionalType.get();
+                        } else {
+                            type = TargetType.builder().type("container").build();
+                            targetTypeRepository.save(type);
+                        }
+
+                        ContainerInventory containerInventory = new ContainerInventory();
+                        containerInventory.setType(type);
+                        containerInventory.setHostName(hostName);
+                        containerInventory.setContainerId(containerId);
+                        containerInventory.setContainerName(containerName);
+                        containerInventoryRepository.save(containerInventory);
+                    }
                 }
+
             }
         }
     }

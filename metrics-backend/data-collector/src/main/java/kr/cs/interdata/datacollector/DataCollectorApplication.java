@@ -33,8 +33,8 @@ class KafkaProducerRunner implements CommandLineRunner {
     @Value("${BOOTSTRAP_SERVER}")
     private String kafkaBootstrapServer;
 
-    @Value("${KAFKA_TOPIC_HOST}")
-    private String kafkaTopicHost;
+    @Value("${KAFKA_TOPIC_NAME}")
+    private String kafkaTopic;
 
     @Value("${HOST_ID:host-001}")
     private String hostId;
@@ -75,7 +75,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         props.put("key.serializer", StringSerializer.class.getName());
         props.put("value.serializer", StringSerializer.class.getName());
 
-        String topic = kafkaTopicHost;
+        String topic = kafkaTopic;
 
         ObjectMapper prettyMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 

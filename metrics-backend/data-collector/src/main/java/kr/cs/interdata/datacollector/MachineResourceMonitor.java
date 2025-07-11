@@ -1,4 +1,4 @@
-package kr.cs.interdata.containerdatacollector;
+package kr.cs.interdata.datacollector;
 
 import com.google.gson.Gson;
 import oshi.SystemInfo;

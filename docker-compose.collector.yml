@@ -1,7 +1,7 @@
 services:
   container-data-collector:
-    image: isslab/im-container-metrics-collector:latest  # 직접 빌드한 이미지로 변경
-    container_name: container-data-collector
+    image: isslab/im-metrics-collector:latest  # 직접 빌드한 이미지로 변경
+    container_name: data-collector
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro

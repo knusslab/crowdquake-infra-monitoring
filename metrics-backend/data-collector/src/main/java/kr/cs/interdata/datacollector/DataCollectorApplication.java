@@ -1,4 +1,4 @@
-package kr.cs.interdata.containerdatacollector;
+package kr.cs.interdata.datacollector;
 
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Statistics;

@@ -24,25 +24,25 @@ java {
 }
 
 springBoot {
-    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
+    mainClass = 'kr.cs.interdata.datacollector.DataCollectorApplication'
 }
 
 application {
-    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
+    mainClass = 'kr.cs.interdata.datacollector.DataCollectorApplication'
 }
 
 tasks.register("runLocalHostMonitor", JavaExec) {
     group = "application"
     description = "Run ResourceMonitorDaemon main"
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
+    mainClass = 'kr.cs.interdata.datacollector.DataCollectorApplication'
 }
 
 tasks.register("runContainerMonitor", JavaExec) {
     group = "application"
     description = "Run DataCollectorApplication main"
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
+    mainClass = 'kr.cs.interdata.datacollector.DataCollectorApplication'
 }
 
 

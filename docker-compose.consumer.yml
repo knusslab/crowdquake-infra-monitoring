@@ -6,14 +6,9 @@ services:
     environment:
       - TZ=${TZ}
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
-      - KAFKA_TOPIC_HOST=${KAFKA_TOPIC_HOST}
-      - KAFKA_TOPIC_CONTAINER=${KAFKA_TOPIC_CONTAINER}
+      - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}
       - KAFKA_CONSUMER_GROUP_ID=${KAFKA_CONSUMER_GROUP_ID}
       - API_BASE_URL=${API_BASE_URL}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "8000:8000"
     networks:
       - monitoring_network
     restart: always

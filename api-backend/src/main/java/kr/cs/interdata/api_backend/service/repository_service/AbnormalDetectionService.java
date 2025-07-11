@@ -36,11 +36,16 @@ public class AbnormalDetectionService {
      * @param value     이상값
      * @param timestamp 이상값이 발생한 시각
      */
-    public void storeViolation(String id, String metric, String threshold, String value, LocalDateTime timestamp) {
-        // 1. AbnormalMetricLog 저장
+    public void storeViolation(String type,
+                               String id,
+                               String name,
+                               String metric,
+                               String threshold, String value, LocalDateTime timestamp) {
         AbnormalMetricLog abn = new AbnormalMetricLog();
 
-        abn.setTargetId(id);
+        abn.setMachineType(type);
+        abn.setMachineId(id);
+        abn.setMachineName(name);
         abn.setMetricName(metric);
         abn.setThreshold(Double.valueOf(threshold));
         abn.setValue(Double.valueOf(value));
@@ -79,10 +84,10 @@ public class AbnormalDetectionService {
      * @param targetId 조회할 targetId (ex. host001, container002, ...)
      * @return 조회된 이상 기록 리스트
      */
-    public List<AbnormalMetricLog> getLatestAbnormalMetricsByTargetId(String targetId) {
+    public List<AbnormalMetricLog> getLatestAbnormalMetricsByMachineId(String targetId) {
 
         // DB 조회 (특정 날짜의 임계치 초과 기록만 가져옴)
-        return abnormalMetricLogRepository.findTop20ByTargetIdOrderByTimestampDesc(targetId);
+        return abnormalMetricLogRepository.findTop20BymachineIdOrderByTimestampDesc(targetId);
     }
 
     //(선택)1달 이상 지난 로그 삭제 -> AbnrmalMetricLog

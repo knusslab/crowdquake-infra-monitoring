@@ -194,8 +194,7 @@ DATABASE_USERNAME=<Username>(임의로 설정)
 DATABASE_PASSWORD=<Password>(임의로 설정)
 CORS_ALLOWED_ORIGINS=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=[kafka topic name for host]
-KAFKA_TOPIC_CONTAINER=[kafka topic name for container]
+KAFKA_TOPIC_NAME=[kafka topic name]
 KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
 API_BASE_URL=http://api-backend:8004(필수)
 ```

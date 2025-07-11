@@ -85,21 +85,21 @@ public class ThresholdService {
     }
 
     /**
-     *  3. 특정 target Id의 임계값 초과 이력 조회
-     * @param targetId  조회할 target Id
+     *  3. 특정 machine Id의 임계값 초과 이력 조회
+     * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
-    public List<Map<String, Object>> getThresholdHistoryforTargetId(TargetIdforHistory targetId) {
+    public List<Map<String, Object>> getThresholdHistoryforMachineId(MachineIdforHistory machineId) {
 
         // Service를 통해 DB 조회
-        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByTargetId(targetId.getTargetId());
+        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByMachineId(machineId.getTargetId());
 
         // 결과를 클라이언트에 맞게 매핑
         List<Map<String, Object>> result = new ArrayList<>();
         for (AbnormalMetricLog log : logs) {
             Map<String, Object> record = new HashMap<>();
             record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-            record.put("targetId", log.getTargetId());
+            record.put("targetId", log.getMachineId());
             record.put("metricName", log.getMetricName());
             record.put("threshold", log.getThreshold());
             record.put("value", log.getValue().toString());
@@ -134,15 +134,18 @@ public class ThresholdService {
      *        - timestamp: 임계값을 넘은 시각
      */
      public void storeViolation(StoreViolation dto) {
-        //이상값이 생긴 로그를 저장한다.
         String machineId = dto.getMachineId();
+        String type = dto.getType();
+        String machineName = dto.getMachineName();
         String metricName = dto.getMetricName();
         String threshold = dto.getThreshold();
         String value = dto.getValue();
         LocalDateTime timestamp = dto.getTimestamp();
 
         abnormalDetectionService.storeViolation(
+                type,
                 machineId,
+                machineName,
                 metricName,
                 threshold,
                 value,
@@ -218,31 +221,54 @@ public class ThresholdService {
     /**
      *  - threshold를 통해 메트릭의 각 값을 계산하는 메서드
      *
-     * @param metric    하나의 id당 모든 메트릭이 들어있는 데이터
+     * @param metric    모든 메트릭이 들어있는 데이터
      */
     @Async
     public void calcThreshold(String metric) {
-        JsonNode metricsNode = parseJson(metric);
+        JsonNode root = parseJson(metric);
 
-        // type ID
-        String machineId = null;
-        String type = null;
-        if (metricsNode.has("hostId")) {
-            type = "host";
-            machineId = metricsNode.get("hostId").asText();
-        }
-        else if (metricsNode.has("containerId")) {
-            type = "container";
-            machineId = metricsNode.get("containerId").asText();
-        }
-        else {
-            logger.warn("Metric name not found.");
-        }
+        String type = root.path("type").asText();       // "host"
+        String hostId = root.path("hostId").asText();   // host id
+        String hostName = root.path("name").asText();   // host name
+        String violationTime = root.path("timeStamp").asText(); // timestamp
 
+        // 1. Host 자체 메트릭 처리
+        processMetricThresholds(
+                type,                  // "host"
+                hostId,                // host id
+                hostName,                  // hostName
+                LocalDateTime.parse(violationTime),
+                root                   // 전체 JSON에서 host 메트릭은 root 자체
+        );
+
+        // 2. Container 각각 메트릭 처리
+        JsonNode containersNode = root.path("containers");
+        if (containersNode != null && containersNode.isObject()) {
+            Iterator<Map.Entry<String, JsonNode>> fields = containersNode.fields();
+
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> entry = fields.next();
+                String containerId = entry.getKey();             // container id
+                JsonNode containerNode = entry.getValue();       // 그 안의 메트릭 정보
+
+                String containerName = containerNode.path("name").asText(); // ex. "app1"
+
+                processMetricThresholds(
+                        "container",
+                        containerId,
+                        containerName,
+                        LocalDateTime.parse(violationTime),
+                        containerNode
+                );
+            }
+        }
+    }
+
+
+    public void processMetricThresholds(String type, String machineId, String machineName, LocalDateTime violationTime, JsonNode metricsNode) {
         double metricValue = 0.0;
         String metricName = null;
         boolean isNormal;
-        LocalDateTime violationTime = LocalDateTime.now().withNano(0);
 
         // CPU, Memory, Disk
         for (int i = 0;i < 3;i++){
@@ -270,7 +296,7 @@ public class ThresholdService {
             }
 
             // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
-            isNormal = processThreshold(type , machineId,
+            isNormal = evaluateThresholdAndLogViolation(type , machineId, machineName,
                     metricName, metricValue, violationTime);
         }
 
@@ -294,7 +320,7 @@ public class ThresholdService {
                 metricValue = txBytesDelta + rxBytesDelta;
 
                 // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                isNormal = processThreshold(type , machineId,
+                isNormal = evaluateThresholdAndLogViolation(type , machineId, machineName,
                         metricName, metricValue, violationTime);
 
                 // 만약 어느 network에서 비정상값이 존재한다면
@@ -320,19 +346,21 @@ public class ThresholdService {
      * @return true  - 임계값 미초과 또는 임계값이 없음<br>
      *         false - 임계값 초과 (위반 저장됨)
      */
-    public boolean processThreshold(String type, String machineId,
+    public boolean evaluateThresholdAndLogViolation(String type, String machineId, String machineName,
                                     String metricName, Double value, LocalDateTime violationTime) {
         // thresholdStore에서 해당 메트릭의 임계값을 조회
         Double threshold = thresholdStore.getThreshold(type, metricName);
 
         // 1. 임계값이 존재하고, 메트릭이 임계값을 초과한 경우
         if (threshold != null && value > threshold) {
-            logger.warn("임계값 초과: {} -> {} = {} (임계값: {})", type, metricName, value, threshold);
+            logger.warn("임계값 초과: {} | {} | {} -> {} = {} (임계값: {})"
+                    , type, machineId, machineName, metricName, value, threshold);
 
             // 위반 정보 객체 생성 및 필드 설정
             StoreViolation storeViolation = new StoreViolation();
             storeViolation.setType(type);
             storeViolation.setMachineId(machineId);
+            storeViolation.setMachineName(machineName);
             storeViolation.setMetricName(metricName);
             storeViolation.setValue(String.valueOf(value));
             storeViolation.setThreshold(String.valueOf(threshold));

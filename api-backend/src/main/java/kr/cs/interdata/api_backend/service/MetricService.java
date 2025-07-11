@@ -3,6 +3,7 @@ package kr.cs.interdata.api_backend.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.api_backend.infra.MetricWebsocketSender;
+import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,14 @@ public class MetricService {
 
     private final ThresholdService thresholdService;
     private final MetricWebsocketSender metricWebsocketSender;
+    private final MachineInventoryService machineInventoryService;
 
     public MetricService(ThresholdService thresholdService,
-                         MetricWebsocketSender metricWebsocketSender) {
+                         MetricWebsocketSender metricWebsocketSender,
+                         MachineInventoryService machineInventoryService) {
         this.thresholdService = thresholdService;
         this.metricWebsocketSender = metricWebsocketSender;
+        this.machineInventoryService = machineInventoryService;
     }
 
     /**
@@ -43,17 +47,13 @@ public class MetricService {
         // 프론트엔드에 실시간 메트릭 전송
         metricWebsocketSender.handleMessage(metricsNode);
 
+        machineInventoryService.registerMachineIfAbsent(metric);
+
         // 임계값 초과 여부 계산 및 로그 전송
         thresholdService.calcThreshold(metric);
 
         // 메트릭의 대상 구분 후 로그 출력
-        if (metricsNode.has("hostId")) {
-            logger.info("Sended threshold metric: {}", metricsNode.get("hostId").asText());
-        } else if (metricsNode.has("containerId")) {
-            logger.info("Sended threshold metric: {}", metricsNode.get("containerId").asText());
-        } else {
-            logger.warn("존재하지 않는 id입니다.");
-        }
+        logger.info("Metrics sent to Websocket: {}", metric);
     }
 
     /**

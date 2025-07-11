@@ -18,10 +18,10 @@ public interface AbnormalMetricLogRepository extends JpaRepository<AbnormalMetri
     List<AbnormalMetricLog> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
 
     /**
-     *  - 주어진 target ID로 필터링하여 가장 최근을 기준으로 최대 20개의 로그들을 리스트로 저장해 반환한다.
+     *  - 주어진 machine ID로 필터링하여 가장 최근을 기준으로 최대 20개의 로그들을 리스트로 저장해 반환한다.
      *
-     * @param targetId  필터링할 target ID
-     * @return  targetId = targetId인 최근 로그들 중 최대 20개를 저장한 리스트
+     * @param targetId  필터링할 machine ID
+     * @return  machineId = machineId인 최근 로그들 중 최대 20개를 저장한 리스트
      */
-    List<AbnormalMetricLog> findTop20ByTargetIdOrderByTimestampDesc(String targetId);
+    List<AbnormalMetricLog> findTop20BymachineIdOrderByTimestampDesc(String targetId);
 }

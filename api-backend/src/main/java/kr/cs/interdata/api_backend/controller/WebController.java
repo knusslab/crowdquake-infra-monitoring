@@ -34,8 +34,8 @@ public class WebController {
     }
 
     @PostMapping("/metrics/threshold-history")
-    public ResponseEntity<?> getThresholdHistory(@RequestBody TargetIdforHistory targetId) {
-        return ResponseEntity.ok(thresholdService.getThresholdHistoryforTargetId(targetId));
+    public ResponseEntity<?> getThresholdHistory(@RequestBody MachineIdforHistory targetId) {
+        return ResponseEntity.ok(thresholdService.getThresholdHistoryforMachineId(targetId));
     }
 
     // SSE 방식

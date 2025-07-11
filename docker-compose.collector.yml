@@ -7,11 +7,23 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
-      - KAFKA_TOPIC_HOST=${KAFKA_TOPIC_HOST}
-      - KAFKA_TOPIC_CONTAINER=${KAFKA_TOPIC_CONTAINER}
+      - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}
       - TZ=${TZ}
     ports:
       - "8001:8001"
+    networks:
+      - monitoring_network
+    restart: always
+
+  machine-data-collector:
+    image: isslab/im-host-metrics-collector
+    container_name: machine-data-collector
+    environment:
+      - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
+      - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}
+      - TZ=${TZ}
+    ports:
+      - "8002:8002"
     networks:
       - monitoring_network
     restart: always

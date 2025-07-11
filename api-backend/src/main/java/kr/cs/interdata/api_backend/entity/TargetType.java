@@ -32,7 +32,7 @@ public class TargetType {
     private String type; // machine 타입 -> "host" or "container"
 
     @OneToMany(mappedBy = "type")
-    private List<HostInventory> machines;
+    private List<HostMachineInventory> machines;
 
     @OneToMany(mappedBy = "type")
     private List<ContainerInventory> containers;

@@ -8,7 +8,7 @@ import lombok.Setter;
 @Table(name = "HostMachineInventory")
 @Getter
 @Setter
-public class HostInventory {
+public class HostMachineInventory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

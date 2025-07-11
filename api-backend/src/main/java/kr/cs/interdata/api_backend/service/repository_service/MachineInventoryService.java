@@ -3,10 +3,10 @@ package kr.cs.interdata.api_backend.service.repository_service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.api_backend.entity.ContainerInventory;
-import kr.cs.interdata.api_backend.entity.HostInventory;
+import kr.cs.interdata.api_backend.entity.HostMachineInventory;
 import kr.cs.interdata.api_backend.entity.TargetType;
 import kr.cs.interdata.api_backend.repository.ContainerInventoryRepository;
-import kr.cs.interdata.api_backend.repository.HostInventoryRepository;
+import kr.cs.interdata.api_backend.repository.HostMachineInventoryRepository;
 import kr.cs.interdata.api_backend.repository.TargetTypeRepository;
 import kr.cs.interdata.api_backend.service.ThresholdService;
 import org.slf4j.Logger;
@@ -15,9 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.awt.*;
-import java.lang.annotation.Target;
-import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
@@ -30,16 +27,16 @@ public class MachineInventoryService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public final TargetTypeRepository targetTypeRepository;
-    private final HostInventoryRepository hostInventoryRepository;
+    private final HostMachineInventoryRepository hostMachineInventoryRepository;
     private final ContainerInventoryRepository containerInventoryRepository;
     private final Logger logger = LoggerFactory.getLogger(MachineInventoryService.class);
 
     @Autowired
     public MachineInventoryService(TargetTypeRepository targetTypeRepository,
-                                   HostInventoryRepository hostInventoryRepository,
+                                   HostMachineInventoryRepository hostMachineInventoryRepository,
                                    ContainerInventoryRepository containerInventoryRepository) {
         this.targetTypeRepository = targetTypeRepository;
-        this.hostInventoryRepository = hostInventoryRepository;
+        this.hostMachineInventoryRepository = hostMachineInventoryRepository;
         this.containerInventoryRepository = containerInventoryRepository;
     }
 
@@ -61,7 +58,7 @@ public class MachineInventoryService {
         String hostName = root.path("name").asText();   // host name
 
         // hostInventory에 있는지 없는지 판별 없으면 삽입
-        if (!hostInventoryRepository.existsByHostIdAndHostName(hostId, hostName)) {
+        if (!hostMachineInventoryRepository.existsByHostIdAndHostName(hostId, hostName)) {
             Optional<TargetType> optionalType = targetTypeRepository.findByType("host");
             TargetType type;
             if (optionalType.isPresent()) {
@@ -73,11 +70,11 @@ public class MachineInventoryService {
             }
 
             // HostInventory에 저장
-            HostInventory hostInventory = new HostInventory();
-            hostInventory.setType(type); 
-            hostInventory.setHostId(hostId);
-            hostInventory.setHostName(hostName);
-            hostInventoryRepository.save(hostInventory);
+            HostMachineInventory hostMachineInventory = new HostMachineInventory();
+            hostMachineInventory.setType(type);
+            hostMachineInventory.setHostId(hostId);
+            hostMachineInventory.setHostName(hostName);
+            hostMachineInventoryRepository.save(hostMachineInventory);
         }
 
         JsonNode containersNode = root.path("containers");
@@ -132,7 +129,7 @@ public class MachineInventoryService {
     // 머신 모든 숫자 조회
     public int retrieveAllMachineNumber() {
         int result = 0;
-        result = hostInventoryRepository.countAll() + containerInventoryRepository.countAll();
+        result = hostMachineInventoryRepository.countAll() + containerInventoryRepository.countAll();
 
         return result;
     }
@@ -142,7 +139,7 @@ public class MachineInventoryService {
         int result = 0;
 
         if (type.equals("host")) {
-            result = hostInventoryRepository.countAll();
+            result = hostMachineInventoryRepository.countAll();
         }
         else if (type.equals("container")) {
             result = containerInventoryRepository.countAll();

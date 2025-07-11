@@ -1,18 +1,18 @@
 package kr.cs.interdata.api_backend.repository;
 
-import kr.cs.interdata.api_backend.entity.HostInventory;
+import kr.cs.interdata.api_backend.entity.HostMachineInventory;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 
-public interface HostInventoryRepository extends JpaRepository<HostInventory, Integer> {
+public interface HostMachineInventoryRepository extends JpaRepository<HostMachineInventory, Integer> {
 
     /**
      *  - 모든 HostInventory 데이터의 개수를 반환한다.
      *
      * @return  전체 데이터 개수
      */
-    @Query("SELECT COUNT(m) FROM HostInventory m")
+    @Query("SELECT COUNT(m) FROM HostMachineInventory m")
     int countAll();
 
 

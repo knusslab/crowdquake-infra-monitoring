@@ -1,9 +1,8 @@
-package kr.cs.interdata.machinedatacollector;
+package kr.cs.interdata.containerdatacollector;
 
 import oshi.SystemInfo;
-import oshi.hardware.NetworkIF;
 import oshi.hardware.HardwareAbstractionLayer;
-import oshi.hardware.NetworkIF.IfOperStatus;
+import oshi.hardware.NetworkIF;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,7 +25,7 @@ public class MachineNetworkMonitor {
             net.updateAttributes();
 
             // 활성화된 인터페이스만 포함
-            if (net.getIfOperStatus() == IfOperStatus.UP) {
+            if (net.getIfOperStatus() == NetworkIF.IfOperStatus.UP) {
                 Map<String, Object> netInfo = new LinkedHashMap<>();
                 netInfo.put("speedBps", net.getSpeed()); // bps
                 netInfo.put("bytesReceived", net.getBytesRecv()); // byte

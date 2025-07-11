@@ -24,25 +24,25 @@ java {
 }
 
 springBoot {
-    mainClass = 'kr.cs.interdata.containerdatacollector.ContainerDataCollectorApplication'
+    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
 }
 
 application {
-    mainClass = 'kr.cs.interdata.containerdatacollector.ContainerDataCollectorApplication'
+    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
 }
 
 tasks.register("runLocalHostMonitor", JavaExec) {
     group = "application"
     description = "Run ResourceMonitorDaemon main"
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'kr.cs.interdata.containerdatacollector.ResourceMonitorDaemon'
+    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
 }
 
 tasks.register("runContainerMonitor", JavaExec) {
     group = "application"
-    description = "Run ContainerDataCollectorApplication main"
+    description = "Run DataCollectorApplication main"
     classpath = sourceSets.main.runtimeClasspath
-    mainClass = 'kr.cs.interdata.containerdatacollector.ContainerDataCollectorApplication'
+    mainClass = 'kr.cs.interdata.containerdatacollector.DataCollectorApplication'
 }
 
 
@@ -81,8 +81,5 @@ dependencies {
     implementation 'com.github.docker-java:docker-java-core:3.5.2'
     implementation 'com.github.docker-java:docker-java-transport-httpclient5:3.5.2'
 
-}
 
-tasks.named('test') {
-    useJUnitPlatform()
 }

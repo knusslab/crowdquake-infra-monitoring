@@ -146,8 +146,14 @@ class KafkaProducerRunner implements CommandLineRunner {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("type", "host");
         result.put("hostId", hostId);
+        //result.put("name", hostName);
+        try {
+            hostName = java.net.InetAddress.getLocalHost().getHostName();
+        } catch (Exception e) {
+            hostName = "unknown";
+        }
         result.put("name", hostName);
-        result.put("timeStamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+        result.put("timeStamp", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date()));
         result.put("cpuUsagePercent", resourceMap.get("cpuUsagePercent"));
         result.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));
         result.put("diskReadBytesDelta", deltaDiskRead);

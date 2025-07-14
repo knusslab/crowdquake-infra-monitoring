@@ -6,6 +6,7 @@ import kr.cs.interdata.api_backend.infra.cache.MachineMetricTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.lang.Nullable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -31,19 +32,47 @@ public class MetricMonitorService {
     }
 
     // 메트릭 수신 시 호출: 캐시에 시간 저장
-    public void updateMetricTimestamp(String type, String machineId, String machineName) {
-        String key = type + ":" + machineId;
-        metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), machineName));
+    public void updateMetricTimestampWithNameKey(String type, String id, String name, @Nullable String parentHostName) {
+        String key;
+
+        if ("container".equals(type)) {
+            key = "container:" + name + ":" + parentHostName;
+        } else { // type.equals("host")
+            key = "host:" + name;
+        }
+
+        MachineMetricTimestamp existing = metricTimestampCache.getIfPresent(key);
+g
+        if (existing != null) {
+            // 기존 값이 있을 경우: ID가 변경된 경우만 업데이트
+            logger.info("{} | {} | {} | exist -> ", type, id, name);
+            if (!existing.getMachineId().equals(id)) {
+                metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName));
+                logger.info("{} | {} | {} | exist, updated -> ", type, id, name);
+            } else {
+                metricTimestampCache.put(
+                        key,
+                        new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName)
+                );
+                logger.info("{} | {} | {} | exist, timestamp only updated -> ", type, id, name);
+            }
+            // 같다면 갱신 필요 없음
+        } else {
+            // 없으면 새로 등록
+            metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName));
+            logger.info("{} | {} | {} | not exist, added -> ", type, id, name);
+        }
     }
+
 
     @Async
     public void updateTimestamps(JsonNode metricsNode) {
         String type = metricsNode.get("type").asText(); // "host"
         String hostId = metricsNode.get("hostId").asText();
-        String hostName = metricsNode.get("name").asText(); // 여기에 있음!
+        String hostName = metricsNode.get("name").asText();
 
         // 1. 호스트
-        updateMetricTimestamp(type, hostId, hostName);
+        updateMetricTimestampWithNameKey(type, hostId, hostName, null);
 
         // 2. 컨테이너
         JsonNode containersNode = metricsNode.get("containers");
@@ -52,8 +81,8 @@ public class MetricMonitorService {
             while (fieldNames.hasNext()) {
                 String containerId = fieldNames.next();
                 JsonNode containerNode = containersNode.get(containerId);
-                String containerName = containerNode.get("name").asText(); // 여기서 name 있음
-                updateMetricTimestamp("container", containerId, containerName);
+                String containerName = containerNode.get("name").asText();
+                updateMetricTimestampWithNameKey("container", containerId, containerName, hostName);
             }
         }
     }
@@ -69,13 +98,14 @@ public class MetricMonitorService {
             MachineMetricTimestamp data = entry.getValue();
 
             if (Duration.between(data.getTimestamp(), now).toSeconds() >= 60) {
-                String[] parts = key.split(":");
+                // key 형식: type:machineName:parentHostName
+                String[] parts = key.split(":", 3);
                 String type = parts[0];
-                String machineId = parts[1];
+                String parentHostName = parts.length == 3 ? parts[2] : null;
 
-                thresholdService.storeTimeout(type, machineId, data.getMachineName(), now);
+                thresholdService.storeTimeout(type, data.getMachineId(), data.getMachineName(), now);
 
-                logger.warn("store timeout for machine {} for machine {}", machineId, type);
+                logger.warn("store timeout for machineName={} type={} parentHostName={}", parts[1], type, parentHostName);
             }
         }
     }

@@ -8,6 +8,7 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /dev:/host/dev:ro
+      - /etc/hostname:/host/etc/hostname:ro
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
       - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}

@@ -172,7 +172,8 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("hostId", resourceMap.get("hostId"));
         //result.put("name", hostName);
         try {
-            hostName = Files.readString(Paths.get("/host/proc/sys/kernel/hostname")).trim();
+            hostName = Files.readString(Paths.get("/host/etc/hostname")).trim();
+            //hostName = Files.readString(Paths.get("/host/proc/sys/kernel/hostname")).trim();
         } catch (Exception e) {
             hostName = "unknown";
         }

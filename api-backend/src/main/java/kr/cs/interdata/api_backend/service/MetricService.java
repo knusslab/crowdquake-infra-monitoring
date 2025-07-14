@@ -2,7 +2,7 @@ package kr.cs.interdata.api_backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import kr.cs.interdata.api_backend.infra.MetricWebsocketSender;
+import kr.cs.interdata.api_backend.infra.websocket.MetricWebsocketSender;
 import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +23,16 @@ public class MetricService {
     private final ThresholdService thresholdService;
     private final MetricWebsocketSender metricWebsocketSender;
     private final MachineInventoryService machineInventoryService;
+    private final MetricMonitorService metricMonitorService;
 
     public MetricService(ThresholdService thresholdService,
                          MetricWebsocketSender metricWebsocketSender,
-                         MachineInventoryService machineInventoryService) {
+                         MachineInventoryService machineInventoryService,
+                         MetricMonitorService metricMonitorService) {
         this.thresholdService = thresholdService;
         this.metricWebsocketSender = metricWebsocketSender;
         this.machineInventoryService = machineInventoryService;
+        this.metricMonitorService = metricMonitorService;
     }
 
     /**
@@ -44,15 +47,19 @@ public class MetricService {
     public void sendMetric(String metric) {
         JsonNode metricsNode = parseJson(metric);
 
-        // 프론트엔드에 실시간 메트릭 전송
+        // 1. 실시간 웹소켓 전송
         metricWebsocketSender.handleMessage(metricsNode);
 
+        // 2. Inventory 등록
         machineInventoryService.registerMachineIfAbsent(metric);
 
-        // 임계값 초과 여부 계산 및 로그 전송
+        // 3. 캐시 갱신: 호스트 + 모든 컨테이너
+        metricMonitorService.updateTimestamps(metricsNode);
+
+        // 4. 임계값 초과 확인
         thresholdService.calcThreshold(metric);
 
-        // 메트릭의 대상 구분 후 로그 출력
+        // 5. 로그 출력
         logger.info("Metrics sent to Websocket: {}", metric);
     }
 

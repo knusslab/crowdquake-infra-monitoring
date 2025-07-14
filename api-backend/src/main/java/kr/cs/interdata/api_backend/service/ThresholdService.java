@@ -216,6 +216,32 @@ public class ThresholdService {
     }
 
     /**
+     *  5-5. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 발생시키고 이를 처리하는 메서드
+     *
+     * @param type              이상 로그 발생 머신의 type
+     * @param machineId         이상 로그 발생 머신의 ID
+     * @param machineName       이상 로그 발생 머신의 name
+     * @param violationTime     이상 로그가 발생한 시각
+     */
+    public void storeTimeout(String type, String machineId, String machineName, LocalDateTime violationTime) {
+        abnormalDetectionService.storeTimeout(
+                type,
+                machineId,
+                machineName,
+                violationTime
+        );
+
+        // 실시간 전송 준비
+        AlertTimeout alertTimeout = new AlertTimeout();
+        alertTimeout.setMachineId(machineId);
+        alertTimeout.setMachineName(machineName);
+        alertTimeout.setTimestamp(violationTime);
+
+        // 실시간 전송 (비동기 처리)
+        CompletableFuture.runAsync(() -> publishTimeout(alertTimeout));
+    }
+
+    /**
      *  6-1. sse방식을 사용하기 위해 비동기로 emitter를 연결한다.
      *  -> SSE 연결을 생성하고 Emitter를 관리한다.
      *
@@ -313,6 +339,35 @@ public class ThresholdService {
             // 변환에 실패하면 로깅만 하고 기본 메시지 설정
             logger.error("Failed to convert AlertContainerIdChanged to JSON. Sending default error message.", e);
             jsonData = "{\"error\": \"Failed to convert AlertContainerIdChanged to JSON\"}";
+        }
+
+        // 모든 Emitter에 브로드캐스트 전송
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(jsonData);
+            } catch (IOException e) {
+                logger.warn("Failed to send data to client. Removing emitter: {}", entry.getKey());
+                entry.getValue().completeWithError(e);
+                emitters.remove(entry.getKey());
+            }
+        }
+    }
+
+    /**
+     * 6-2-4. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 실시간으로 전송한다.
+     *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
+     *
+     * @param alert 실시간 전송할 데이터
+     */
+    public void publishTimeout(AlertTimeout alert) {
+        String jsonData;
+
+        try {
+            jsonData = objectMapper.writeValueAsString(alert);
+        } catch (IOException e) {
+            // 변환에 실패하면 로깅만 하고 기본 메시지 설정
+            logger.error("Failed to convert AlertTimeout to JSON. Sending default error message.", e);
+            jsonData = "{\"error\": \"Failed to convert AlertTimeout to JSON\"}";
         }
 
         // 모든 Emitter에 브로드캐스트 전송

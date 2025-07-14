@@ -94,7 +94,7 @@ docker-compose -f docker-compose.collector.yml up -d
 ## 💻 환경설정
 - 💡 최상위 경로에 .env 파일이 없다면 **반드시** 새로 생성합니다.
 ```bash
-TZ=Asia/Seoul(변경 가능)
+TZ=Asia/Seoul   # 변경 가능
 DATABASE_ROOT_PASSWORD=<Root-Password>(임의로 설정)
 DATABASE_USERNAME=<Username>(임의로 설정)
 DATABASE_PASSWORD=<Password>(임의로 설정)
@@ -102,7 +102,7 @@ CORS_ALLOWED_ORIGINS=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마�
 BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
 KAFKA_TOPIC_NAME=[kafka topic name]
 KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
-API_BASE_URL=http://api-backend:8004(필수)
+API_BASE_URL=http://api-backend:8004    # 필수
 ```
 
 ---

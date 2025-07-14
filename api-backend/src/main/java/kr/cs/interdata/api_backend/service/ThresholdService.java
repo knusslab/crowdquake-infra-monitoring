@@ -16,7 +16,6 @@ import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefiniti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpInputMessage;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -155,6 +154,7 @@ public class ThresholdService {
         // 실시간 전송 준비
         AlertThresholdExceeded alert = new AlertThresholdExceeded();
         alert.setMachineId(machineId);
+        alert.setMachineName(machineName);
         alert.setMetricName(metricName);
         alert.setValue(value);
         alert.setThreshold(threshold);
@@ -188,6 +188,31 @@ public class ThresholdService {
 
         // 실시간 전송 (비동기 처리)
         CompletableFuture.runAsync(() -> publishZeroValue(alertZerovalue));
+    }
+
+    /**
+     *  5-3. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
+     *
+     * @param containerId       이상 로그 발생 머신의 ID
+     * @param containerName     이상 로그 발생 머신의 name
+     * @param violationTime     이상 로그가 발생한 시각
+     */
+    public void storeContainerIdChanged(String containerId, String containerName, LocalDateTime violationTime) {
+        abnormalDetectionService.storeContainerIdChanged(
+                "container",
+                containerId,
+                containerName,
+                violationTime
+        );
+
+        // 실시간 전송 준비
+        AlertContainerIdChanged alertContainerIdChanged = new AlertContainerIdChanged();
+        alertContainerIdChanged.setMachineId(containerId);
+        alertContainerIdChanged.setMachineName(containerName);
+        alertContainerIdChanged.setTimestamp(violationTime);
+
+        // 실시간 전송 (비동기 처리)
+        CompletableFuture.runAsync(() -> publishContainerIdChanged(alertContainerIdChanged));
     }
 
     /**
@@ -258,6 +283,36 @@ public class ThresholdService {
             // 변환에 실패하면 로깅만 하고 기본 메시지 설정
             logger.error("Failed to convert AlertZerovalue to JSON. Sending default error message.", e);
             jsonData = "{\"error\": \"Failed to convert AlertZerovalue to JSON\"}";
+        }
+
+        // 모든 Emitter에 브로드캐스트 전송
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(jsonData);
+            } catch (IOException e) {
+                logger.warn("Failed to send data to client. Removing emitter: {}", entry.getKey());
+                entry.getValue().completeWithError(e);
+                emitters.remove(entry.getKey());
+            }
+        }
+    }
+
+    /**
+     *
+     * 6-2-3. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 실시간으로 전송한다.
+     *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
+     *
+     * @param alert 실시간 전송할 데이터
+     */
+    public void publishContainerIdChanged(AlertContainerIdChanged alert) {
+        String jsonData;
+
+        try {
+            jsonData = objectMapper.writeValueAsString(alert);
+        } catch (IOException e) {
+            // 변환에 실패하면 로깅만 하고 기본 메시지 설정
+            logger.error("Failed to convert AlertContainerIdChanged to JSON. Sending default error message.", e);
+            jsonData = "{\"error\": \"Failed to convert AlertContainerIdChanged to JSON\"}";
         }
 
         // 모든 Emitter에 브로드캐스트 전송

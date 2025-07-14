@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
@@ -29,15 +30,18 @@ public class MachineInventoryService {
     public final TargetTypeRepository targetTypeRepository;
     private final HostMachineInventoryRepository hostMachineInventoryRepository;
     private final ContainerInventoryRepository containerInventoryRepository;
+    private final ThresholdService thresholdService;
     private final Logger logger = LoggerFactory.getLogger(MachineInventoryService.class);
 
     @Autowired
     public MachineInventoryService(TargetTypeRepository targetTypeRepository,
                                    HostMachineInventoryRepository hostMachineInventoryRepository,
-                                   ContainerInventoryRepository containerInventoryRepository) {
+                                   ContainerInventoryRepository containerInventoryRepository,
+                                   ThresholdService thresholdService) {
         this.targetTypeRepository = targetTypeRepository;
         this.hostMachineInventoryRepository = hostMachineInventoryRepository;
         this.containerInventoryRepository = containerInventoryRepository;
+        this.thresholdService = thresholdService;
     }
 
     /**
@@ -56,6 +60,7 @@ public class MachineInventoryService {
 
         String hostId = root.path("hostId").asText();   // host id
         String hostName = root.path("name").asText();   // host name
+        LocalDateTime timestamp = LocalDateTime.parse(root.path("timeStamp").asText());
 
         // hostInventory에 있는지 없는지 판별 없으면 삽입
         if (!hostMachineInventoryRepository.existsByHostIdAndHostName(hostId, hostName)) {
@@ -98,7 +103,16 @@ public class MachineInventoryService {
                             containerInventoryRepository.findByHostNameAndContainerName(hostName, containerName);
 
                     if (existingInventory.isPresent()) {
-                        // 3. 있으면 containerId 덮어씌우고 저장
+                        // 3. 있으면 ThresholdService에 경보 로그 주고 + containerId 덮어씌우고 저장
+
+                        // send 경보 로그
+                        thresholdService.storeContainerIdChanged(
+                                containerId,
+                                containerName,
+                                timestamp
+                        );
+
+                        // containerId 덮어씌우는 작업
                         ContainerInventory containerInventory = existingInventory.get();
                         containerInventory.setContainerId(containerId);
                         containerInventoryRepository.save(containerInventory);

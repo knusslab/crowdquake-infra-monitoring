@@ -16,6 +16,7 @@ import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefiniti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -122,18 +123,17 @@ public class ThresholdService {
     }
 
     /*
-     *  5. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
-     *    -> consumer에서 임계값을 조회해 이 프로젝트로 넘어왔을 때, 이는 임계값을 넘은 값이고,
-     *          1. 이를 db에 저장한다.
-     *          2. 이를 sse방식으로 실시간 전송하는 메서드(6-2)를 호출한다.
-     *    -> db : AbnormalMetricLog, LatestAbnormalStatus
+     *  5-1. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
+     *
      * @param dto
-     *        - typeId     : 메시지를 보낸 호스트
-     *        - metricName   : 메트릭 이름
-     *        - value    : 임계값을 넘은 값
-     *        - timestamp: 임계값을 넘은 시각
+     *        - type            : 이상 로그 발생 머신의 type
+     *        - machineId       : 이상 로그 발생 머신의 ID
+     *        - machineName     : 이상 로그 발생 머신의 name
+     *        - metricName      : (임계초과)메트릭 이름
+     *        - value           : 임계값을 넘은 값
+     *        - timestamp       : 임계값을 넘은 시각
      */
-     public void storeViolation(StoreViolation dto) {
+     public void storeThresholdExceededLog(StoreThresholdExceeded dto) {
         String machineId = dto.getMachineId();
         String type = dto.getType();
         String machineName = dto.getMachineName();
@@ -142,7 +142,7 @@ public class ThresholdService {
         String value = dto.getValue();
         LocalDateTime timestamp = dto.getTimestamp();
 
-        abnormalDetectionService.storeViolation(
+        abnormalDetectionService.storeThresholdExceeded(
                 type,
                 machineId,
                 machineName,
@@ -153,7 +153,7 @@ public class ThresholdService {
         );
 
         // 실시간 전송 준비
-        AlertThreshold alert = new AlertThreshold();
+        AlertThresholdExceeded alert = new AlertThresholdExceeded();
         alert.setMachineId(machineId);
         alert.setMetricName(metricName);
         alert.setValue(value);
@@ -161,8 +161,33 @@ public class ThresholdService {
         alert.setTimestamp(timestamp);
 
         // 실시간 전송 (비동기 처리)
-        CompletableFuture.runAsync(() -> publishThreshold(alert));
+        CompletableFuture.runAsync(() -> publishThresholdExceeded(alert));
 
+    }
+
+    /**
+     *  5-2. container가 꺼졌다 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
+     *
+     * @param type          이상 로그 발생 머신의 type
+     * @param machineId     이상 로그 발생 머신의 ID
+     * @param machineName   이상 로그 발생 머신의 name
+     * @param violationTime 이상 로그가 발생한 시각
+     */
+    public void storeZeroValueLog(String type, String machineId, String machineName, LocalDateTime violationTime) {
+        abnormalDetectionService.storeZeroValue(
+                type,
+                machineId,
+                machineName,
+                violationTime);
+
+        // 실시간 전송 준비
+        AlertZerovalue alertZerovalue = new AlertZerovalue();
+        alertZerovalue.setMachineId(machineId);
+        alertZerovalue.setMachineName(machineName);
+        alertZerovalue.setTimestamp(violationTime);
+
+        // 실시간 전송 (비동기 처리)
+        CompletableFuture.runAsync(() -> publishZeroValue(alertZerovalue));
     }
 
     /**
@@ -190,19 +215,49 @@ public class ThresholdService {
 
 
     /**
-     *  6-2. 임계값을 초과한 데이터가 발생하면 실시간으로 전송한다.
+     *  6-2-1. 임계값을 초과한 데이터가 발생하면 실시간으로 전송한다.
      *      -> 이상값이 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert     실시간 전송할 임계치를 넘은 데이터
      */
-    public void publishThreshold(AlertThreshold alert) {
+    public void publishThresholdExceeded(AlertThresholdExceeded alert) {
         String jsonData;
         try {
             jsonData = objectMapper.writeValueAsString(alert);
         } catch (IOException e) {
             // 변환에 실패하면 로깅만 하고 기본 메시지 설정
-            logger.error("Failed to convert AlertThreshold to JSON. Sending default error message.", e);
-            jsonData = "{\"error\": \"Failed to convert AlertThreshold to JSON\"}";
+            logger.error("Failed to convert AlertThresholdExceeded to JSON. Sending default error message.", e);
+            jsonData = "{\"error\": \"Failed to convert AlertThresholdExceeded to JSON\"}";
+        }
+
+        // 모든 Emitter에 브로드캐스트 전송
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(jsonData);
+            } catch (IOException e) {
+                logger.warn("Failed to send data to client. Removing emitter: {}", entry.getKey());
+                entry.getValue().completeWithError(e);
+                emitters.remove(entry.getKey());
+            }
+        }
+    }
+
+    /**
+     *
+     * 6-2-2. container가 꺼졌다 판단되면 실시간으로 전송한다.
+     *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
+     *
+     * @param alert  실시간 전송할 데이터
+     */
+    public void publishZeroValue(AlertZerovalue alert) {
+        String jsonData;
+
+        try {
+            jsonData = objectMapper.writeValueAsString(alert);
+        } catch (IOException e) {
+            // 변환에 실패하면 로깅만 하고 기본 메시지 설정
+            logger.error("Failed to convert AlertZerovalue to JSON. Sending default error message.", e);
+            jsonData = "{\"error\": \"Failed to convert AlertZerovalue to JSON\"}";
         }
 
         // 모든 Emitter에 브로드캐스트 전송
@@ -233,7 +288,7 @@ public class ThresholdService {
         String violationTime = root.path("timeStamp").asText(); // timestamp
 
         // 1. Host 자체 메트릭 처리
-        processMetricThresholds(
+        processMetricAnomaly(
                 type,                  // "host"
                 hostId,                // host id
                 hostName,                  // hostName
@@ -253,7 +308,7 @@ public class ThresholdService {
 
                 String containerName = containerNode.path("name").asText(); // ex. "app1"
 
-                processMetricThresholds(
+                processMetricAnomaly(
                         "container",
                         containerId,
                         containerName,
@@ -265,8 +320,9 @@ public class ThresholdService {
     }
 
 
-    public void processMetricThresholds(String type, String machineId, String machineName, LocalDateTime violationTime, JsonNode metricsNode) {
+    public void processMetricAnomaly(String type, String machineId, String machineName, LocalDateTime violationTime, JsonNode metricsNode) {
         double metricValue = 0.0;
+        int zeroValueCnt = 0;
         String metricName = null;
         boolean isNormal;
 
@@ -294,10 +350,15 @@ public class ThresholdService {
                         : 0.0;
                 metricValue = diskReadBytesDelta + diskWriteBytesDelta;
             }
+            if (metricValue == 0.0) { zeroValueCnt++ ; continue;}
 
             // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
             isNormal = evaluateThresholdAndLogViolation(type , machineId, machineName,
                     metricName, metricValue, violationTime);
+        }
+
+        if (zeroValueCnt == 3) {
+            storeZeroValueLog(type, machineId, machineName, violationTime);
         }
 
         // Network
@@ -357,17 +418,17 @@ public class ThresholdService {
                     , type, machineId, machineName, metricName, value, threshold);
 
             // 위반 정보 객체 생성 및 필드 설정
-            StoreViolation storeViolation = new StoreViolation();
-            storeViolation.setType(type);
-            storeViolation.setMachineId(machineId);
-            storeViolation.setMachineName(machineName);
-            storeViolation.setMetricName(metricName);
-            storeViolation.setValue(String.valueOf(value));
-            storeViolation.setThreshold(String.valueOf(threshold));
-            storeViolation.setTimestamp(violationTime);
+            StoreThresholdExceeded storeThresholdExceeded = new StoreThresholdExceeded();
+            storeThresholdExceeded.setType(type);
+            storeThresholdExceeded.setMachineId(machineId);
+            storeThresholdExceeded.setMachineName(machineName);
+            storeThresholdExceeded.setMetricName(metricName);
+            storeThresholdExceeded.setValue(String.valueOf(value));
+            storeThresholdExceeded.setThreshold(String.valueOf(threshold));
+            storeThresholdExceeded.setTimestamp(violationTime);
 
             // 위반 기록 저장
-            storeViolation(storeViolation);
+            storeThresholdExceededLog(storeThresholdExceeded);
 
             return false;
         }
@@ -385,6 +446,7 @@ public class ThresholdService {
         // 임계값을 초과하지 않았거나, 임계값이 존재하지 않을 때 true 반환
         return true;
     }
+
 
     // json 파싱
     private JsonNode parseJson(String json) {

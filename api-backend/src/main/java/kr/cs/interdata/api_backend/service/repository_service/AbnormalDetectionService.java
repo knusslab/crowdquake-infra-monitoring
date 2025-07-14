@@ -26,22 +26,26 @@ public class AbnormalDetectionService {
     }
 
     /**
-     *  - 이상 로그를 저장하는 메서드
+     *  - 이상 로그를 저장하는 메서드 1
      * <p>
-     *  - 데이터를 {@code AbnormalMetricLog}에 저장하고, 동시에 {@code LatestAbnormalStatus}에 저장 또는 갱신한다.
+     *  - 데이터를 {@code AbnormalMetricLog}에 저장한다.
      * </p>
      *
-     * @param id        이상값이 발생한 머신의 고유 ID
+     * @param type      이상값이 발생한 머신의 type
+     * @param id        이상값이 발생한 머신의 ID
+     * @param name      이상값이 발생한 머신의 name
      * @param metric    이상값이 발생한 메트릭 이름
      * @param value     이상값
      * @param timestamp 이상값이 발생한 시각
      */
-    public void storeViolation(String type,
+    public void storeThresholdExceeded(String type,
                                String id,
                                String name,
                                String metric,
                                String threshold, String value, LocalDateTime timestamp) {
         AbnormalMetricLog abn = new AbnormalMetricLog();
+
+        abn.setMessageType("thresholdExceeded");
 
         abn.setMachineType(type);
         abn.setMachineId(id);
@@ -49,6 +53,84 @@ public class AbnormalDetectionService {
         abn.setMetricName(metric);
         abn.setThreshold(Double.valueOf(threshold));
         abn.setValue(Double.valueOf(value));
+        abn.setTimestamp(timestamp);
+        abnormalMetricLogRepository.save(abn);
+    }
+
+    /**
+     *  - 이상 로그를 저장하는 메서드 2
+     *  <p>
+     *  - 데이터를 {@code AbnormalMetricLog}에 저장한다.
+     *  </p>
+     *
+     * @param type      이상값이 발생한 머신의 type
+     * @param id        이상값이 발생한 머신의 ID
+     * @param name      이상값이 발생한 머신의 name
+     * @param timestamp 이상값이 발생한 시각
+     */
+    public void storeZeroValue(String type,
+                               String id,
+                               String name,
+                               LocalDateTime timestamp) {
+        AbnormalMetricLog abn = new AbnormalMetricLog();
+
+        abn.setMessageType("zerovalue");
+
+        abn.setMachineType(type);
+        abn.setMachineId(id);
+        abn.setMachineName(name);
+        abn.setTimestamp(timestamp);
+        abnormalMetricLogRepository.save(abn);
+    }
+
+    /**
+     * - 이상 로그를 저장하는 메서드 3
+     * <p>
+     * - 데이터를 {@code AbnormalMetricLog}에 저장한다.
+     * </p>
+     *
+     * @param type      이상값이 발생한 머신의 type
+     * @param id        이상값이 발생한 머신의 ID
+     * @param name      이상값이 발생한 머신의 name
+     * @param timestamp 이상값이 발생한 시각
+     */
+    public void storeContainerIdChanged(String type,
+                                        String id,
+                                        String name,
+                                        LocalDateTime timestamp) {
+        AbnormalMetricLog abn = new AbnormalMetricLog();
+
+        abn.setMessageType("containerIdChanged");
+
+        abn.setMachineType(type);
+        abn.setMachineId(id);
+        abn.setMachineName(name);
+        abn.setTimestamp(timestamp);
+        abnormalMetricLogRepository.save(abn);
+    }
+
+    /**
+     * - 이상 로그를 저장하는 메서드 4
+     * <p>
+     * - 데이터를 {@code AbnormalMetricLog}에 저장한다.
+     * </p>
+     *
+     * @param type      이상값이 발생한 머신의 type
+     * @param id        이상값이 발생한 머신의 ID
+     * @param name      이상값이 발생한 머신의 name
+     * @param timestamp 이상값이 발생한 시각
+     */
+    public void storeTimeout(String type,
+                             String id,
+                             String name,
+                             LocalDateTime timestamp) {
+        AbnormalMetricLog abn = new AbnormalMetricLog();
+
+        abn.setMessageType("timeout");
+
+        abn.setMachineType(type);
+        abn.setMachineId(id);
+        abn.setMachineName(name);
         abn.setTimestamp(timestamp);
         abnormalMetricLogRepository.save(abn);
     }

@@ -5,11 +5,10 @@ import java.time.LocalDateTime;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.val;
 
 @Getter
 @Setter
-public class StoreViolation {
+public class StoreThresholdExceeded {
 
     private String type;    // 메세지를 보낸 머신의 타입: 호스트, 컨테이너
     private String machineId;    // 메시지를 보낸 호스트/컨테이너의 머신 id

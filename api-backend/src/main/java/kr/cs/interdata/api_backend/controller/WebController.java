@@ -1,5 +1,7 @@
 package kr.cs.interdata.api_backend.controller;
 
+import kr.cs.interdata.api_backend.service.MetricService;
+import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,10 +19,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class WebController {
 
     private final ThresholdService thresholdService;
+    private final MachineInventoryService machineInventoryService;
 
     @Autowired
-    public WebController(ThresholdService thresholdService) {
+    public WebController(ThresholdService thresholdService, MachineInventoryService machineInventoryService) {
         this.thresholdService = thresholdService;
+        this.machineInventoryService = machineInventoryService;
     }
 
     @GetMapping("/metrics/threshold-setting")
@@ -36,6 +40,11 @@ public class WebController {
     @PostMapping("/metrics/threshold-history")
     public ResponseEntity<?> getThresholdHistory(@RequestBody MachineIdforHistory targetId) {
         return ResponseEntity.ok(thresholdService.getThresholdHistoryforMachineId(targetId));
+    }
+
+    @GetMapping("/inventory/list")
+    public ResponseEntity<?> getInventoryList() {
+        return ResponseEntity.ok(machineInventoryService.getHostContainerInventoryList());
     }
 
     // SSE 방식

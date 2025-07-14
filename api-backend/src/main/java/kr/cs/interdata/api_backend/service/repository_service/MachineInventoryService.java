@@ -2,6 +2,7 @@ package kr.cs.interdata.api_backend.service.repository_service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import kr.cs.interdata.api_backend.dto.HostContainerInventoryList;
 import kr.cs.interdata.api_backend.entity.ContainerInventory;
 import kr.cs.interdata.api_backend.entity.HostMachineInventory;
 import kr.cs.interdata.api_backend.entity.TargetType;
@@ -16,9 +17,8 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -139,6 +139,40 @@ public class MachineInventoryService {
             }
         }
     }
+
+    public HostContainerInventoryList getHostContainerInventoryList() {
+        HostContainerInventoryList result = new HostContainerInventoryList();
+
+        // 1. 모든 HostMachineInventory 조회
+        List<HostMachineInventory> hostEntities = hostMachineInventoryRepository.findAll();
+        List<HostContainerInventoryList.HostDTO> hostDTOs = hostEntities.stream()
+                .map(host -> {
+                    HostContainerInventoryList.HostDTO dto = new HostContainerInventoryList.HostDTO();
+                    dto.setId(host.getHostId());
+                    dto.setName(host.getHostName());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        // 2. 모든 ContainerInventory 조회
+        List<ContainerInventory> containerEntities = containerInventoryRepository.findAll();
+        List<HostContainerInventoryList.ContainerDTO> containerDTOs = containerEntities.stream()
+                .map(container -> {
+                    HostContainerInventoryList.ContainerDTO dto = new HostContainerInventoryList.ContainerDTO();
+                    dto.setHost(container.getHostName());
+                    dto.setId(container.getContainerId());
+                    dto.setName(container.getContainerName());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        // 3. DTO 세팅
+        result.setHost(hostDTOs);
+        result.setContainer(containerDTOs);
+
+        return result;
+    }
+
 
     // 머신 모든 숫자 조회
     public int retrieveAllMachineNumber() {

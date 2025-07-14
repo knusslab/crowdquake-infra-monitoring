@@ -57,7 +57,7 @@ public class MetricService {
     }
 
     /**
-     * JSON 문자열을 Jackson의 JsonNode 객체로 파싱합니다.
+     * JSON 문자열을 Jackson의 JsonNode 객체로 파싱합 니다.
      * 유효하지 않은 JSON의 경우 사용자 정의 예외를 발생시킵니다.
      *
      * @param json 문자열 형태의 JSON

@@ -62,25 +62,31 @@ public class MachineInventoryService {
         String hostName = root.path("name").asText();   // host name
         LocalDateTime timestamp = LocalDateTime.parse(root.path("timeStamp").asText());
 
-        // hostInventory에 있는지 없는지 판별 없으면 삽입
+        // hostInventory에 있는지 없는지 판별 없으면 삽입 또는 수정
         if (!hostMachineInventoryRepository.existsByHostIdAndHostName(hostId, hostName)) {
-            Optional<TargetType> optionalType = targetTypeRepository.findByType("host");
-            TargetType type;
-            if (optionalType.isPresent()) {
-                type = optionalType.get();
-            } else {
-                // 없으면 새로 생성
-                type = TargetType.builder().type("host").build();
-                targetTypeRepository.save(type);
-            }
+            Optional<HostMachineInventory> existingByName = hostMachineInventoryRepository.findByHostName(hostName);
 
-            // HostInventory에 저장
-            HostMachineInventory hostMachineInventory = new HostMachineInventory();
-            hostMachineInventory.setType(type);
-            hostMachineInventory.setHostId(hostId);
-            hostMachineInventory.setHostName(hostName);
-            hostMachineInventoryRepository.save(hostMachineInventory);
+            // 1. hostName으로 이미 등록된 row가 있으면 -> hostId만 업데이트
+            if (existingByName.isPresent()) {
+                HostMachineInventory existing = existingByName.get();
+                existing.setHostId(hostId);
+                hostMachineInventoryRepository.save(existing); // update
+                logger.info("Updated hostId for existing hostName '{}': new hostId = {}", hostName, hostId);
+            } else {
+                // 2. 완전히 새로운 경우 -> insert
+                TargetType type = targetTypeRepository.findByType("host")
+                        .orElseGet(() -> targetTypeRepository.save(TargetType.builder().type("host").build()));
+
+                HostMachineInventory newHost = new HostMachineInventory();
+                newHost.setType(type);
+                newHost.setHostId(hostId);
+                newHost.setHostName(hostName);
+                hostMachineInventoryRepository.save(newHost);
+
+                logger.info("Inserted new host entry: hostId = {}, hostName = {}", hostId, hostName);
+            }
         }
+
 
         JsonNode containersNode = root.path("containers");
         if (containersNode != null && containersNode.isObject()) {

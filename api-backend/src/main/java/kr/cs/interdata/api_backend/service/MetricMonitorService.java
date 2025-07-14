@@ -42,7 +42,7 @@ public class MetricMonitorService {
         }
 
         MachineMetricTimestamp existing = metricTimestampCache.getIfPresent(key);
-g
+
         if (existing != null) {
             // 기존 값이 있을 경우: ID가 변경된 경우만 업데이트
             logger.info("{} | {} | {} | exist -> ", type, id, name);

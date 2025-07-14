@@ -20,6 +20,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 @SpringBootApplication
 public class DataCollectorApplication {
     public static void main(String[] args) {
@@ -168,7 +172,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("hostId", resourceMap.get("hostId"));
         //result.put("name", hostName);
         try {
-            hostName = java.net.InetAddress.getLocalHost().getHostName();
+            hostName = Files.readString(Paths.get("/host/proc/sys/kernel/hostname")).trim();
         } catch (Exception e) {
             hostName = "unknown";
         }

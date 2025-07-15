@@ -42,6 +42,11 @@ public class WebController {
         return ResponseEntity.ok(thresholdService.getThresholdHistoryforMachineId(targetId));
     }
 
+    @GetMapping("/metrics/threshold-history-all")
+    public ResponseEntity<?> getThresholdHistoryAll() {
+        return ResponseEntity.ok(thresholdService.getThresholdHistortForAll());
+    }
+
     @GetMapping("/inventory/list")
     public ResponseEntity<?> getInventoryList() {
         return ResponseEntity.ok(machineInventoryService.getHostContainerInventoryList());

@@ -9,6 +9,7 @@ import kr.cs.interdata.api_backend.repository.AbnormalMetricLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,7 +18,7 @@ import java.util.List;
 public class AbnormalDetectionService {
 
     private final AbnormalMetricLogRepository abnormalMetricLogRepository;
-    //private final Logger logger = LoggerFactory.getLogger(AbnormalDetectionService.class);
+    private final Logger logger = LoggerFactory.getLogger(AbnormalDetectionService.class);
 
     @Autowired
     public AbnormalDetectionService(
@@ -160,7 +161,7 @@ public class AbnormalDetectionService {
     /**
      *  - 최근 이상 상태(AbnormalMetricLog)를 조회한다.
      * <p>
-     *  - 지정한 날짜를 기준으로 임계값을 초과한 기록을 조회한다.
+     *  - 지정한 id를 기준으로 이상 기록을 조회한다.
      * </p>
      *
      * @param targetId 조회할 targetId (ex. host001, container002, ...)
@@ -168,10 +169,34 @@ public class AbnormalDetectionService {
      */
     public List<AbnormalMetricLog> getLatestAbnormalMetricsByMachineId(String targetId) {
 
-        // DB 조회 (특정 날짜의 임계치 초과 기록만 가져옴)
+        // DB 조회 (특정 날짜의 Abnormal 기록만 가져옴)
         return abnormalMetricLogRepository.findTop20BymachineIdOrderByTimestampDesc(targetId);
     }
 
-    //(선택)1달 이상 지난 로그 삭제 -> AbnrmalMetricLog
+    /**
+     * - 최근 이상 상태(AbnormalMetricLog)를 조회한다.
+     * <p>
+     *  - 최근 날짜를 기준으로 모든 머신에서의 이상 기록을 조회한다.
+     * </p>
+     *
+     * @return  조회한 이상 기록 리스트
+     */
+    public List<AbnormalMetricLog> getLatestAbnormalMetrics() {
+
+        // DB 조회 (모든 머신에서의 Abnormal 기록 50개 가져옴)
+        return abnormalMetricLogRepository.findTop50ByOrderByTimestampDesc();
+    }
+
+    /**
+     *  - 매일 새벽 3시에 7일 지난 로그 삭제
+     */
+    @Scheduled(cron = "0 0 3 * * *")
+    public void deleteOldAbnormalLogs() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(7);
+        int deleted = abnormalMetricLogRepository.deleteByTimestampBefore(cutoff);
+
+        logger.info("[이상로그삭제] 7일 이상된 로그 {} 건 삭제 완료", deleted);
+    }
+
 
 }

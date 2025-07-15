@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
+import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefinitionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,16 +32,18 @@ public class ThresholdService {
 
     private final AbnormalDetectionService abnormalDetectionService;
     private final MonitoringDefinitionService monitoringDefinitionService;
+    private final MachineInventoryService machineInventoryService;
     private final ThresholdStore thresholdStore;
 
 
     @Autowired
     public ThresholdService(ThresholdStore thresholdStore,
                             AbnormalDetectionService abnormalDetectionService,
-                            MonitoringDefinitionService monitoringDefinitionService) {
+                            MonitoringDefinitionService monitoringDefinitionService, MachineInventoryService machineInventoryService) {
         this.thresholdStore = thresholdStore;
         this.abnormalDetectionService = abnormalDetectionService;
         this.monitoringDefinitionService = monitoringDefinitionService;
+        this.machineInventoryService = machineInventoryService;
     }
 
     /**
@@ -85,7 +88,7 @@ public class ThresholdService {
     }
 
     /**
-     *  3. 특정 machine Id의 임계값 초과 이력 조회
+     *  3. 특정 machine Id의 이상 로그 이력 조회
      * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
@@ -110,15 +113,43 @@ public class ThresholdService {
     }
 
     /**
-     *  4. threshold 조회
-     *  -> MetricsByType 테이블의 모든 값을 조회해,
-     *      모든 타입의 모든 metric의 threshold를 Map의 형태로 저장하여 return한다.
+     *  4. 모든 머신의 이상 로그 이력 조회
      *
-     * @return Map<type(String), Map<metric_name(String), threshold(Double)>> resultMap
+     * @return  이력 리스트 (최신 기준으로 최대 50개)
      */
-    public Map<String, Map<String, Double>> checkThreshold() {
-        // MonitoringDefinitionService에서 조회
-        return monitoringDefinitionService.findAllThresholdsGroupedByType();
+    public List<Map<String, Object>> getThresholdHistortForAll() {
+        // Service를 통해 DB 조회
+        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetrics();
+
+        // 결과를 클라이언트에 맞게 매핑
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (AbnormalMetricLog log : logs) {
+            Map<String, Object> record = new HashMap<>();
+
+            // ContainerInventory 엔티티의 machineId와 machineName을 파싱해서 둘 조합이 있으면 종속된 hostName을 넘겨줌
+            String hostName;
+            if (log.getMachineType().equals("container")) {
+                hostName = machineInventoryService.addHostNameByContainerIdAndContainerName(
+                        log.getMachineId(),
+                        log.getMachineName()
+                );
+            } else {
+                hostName = null;
+            }
+
+            record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
+            record.put("messageType", log.getMessageType());
+            record.put("machineType", log.getMachineType());
+            record.put("machineId", log.getMachineId());
+            record.put("machineName", log.getMachineName());
+            record.put("hostName", hostName);
+            record.put("threshold", log.getThreshold());
+            record.put("value", log.getValue().toString());
+
+            result.add(record);
+        }
+
+        return result;
     }
 
     /*

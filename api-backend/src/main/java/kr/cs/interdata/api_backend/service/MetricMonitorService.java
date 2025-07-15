@@ -45,22 +45,12 @@ public class MetricMonitorService {
 
         if (existing != null) {
             // 기존 값이 있을 경우: ID가 변경된 경우만 업데이트
-            logger.info("{} | {} | {} | exist -> ", type, id, name);
-            if (!existing.getMachineId().equals(id)) {
-                metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName));
-                logger.info("{} | {} | {} | exist, updated -> ", type, id, name);
-            } else {
-                metricTimestampCache.put(
-                        key,
-                        new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName)
-                );
-                logger.info("{} | {} | {} | exist, timestamp only updated -> ", type, id, name);
-            }
+            metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName));
             // 같다면 갱신 필요 없음
         } else {
             // 없으면 새로 등록
             metricTimestampCache.put(key, new MachineMetricTimestamp(LocalDateTime.now(), id, name, parentHostName));
-            logger.info("{} | {} | {} | not exist, added -> ", type, id, name);
+            logger.info("Add cache -> {} | {} | {}", type, id, name);
         }
     }
 

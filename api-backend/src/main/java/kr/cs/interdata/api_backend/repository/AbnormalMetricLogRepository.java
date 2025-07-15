@@ -2,6 +2,10 @@ package kr.cs.interdata.api_backend.repository;
 
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,4 +28,16 @@ public interface AbnormalMetricLogRepository extends JpaRepository<AbnormalMetri
      * @return  machineId = machineId인 최근 로그들 중 최대 20개를 저장한 리스트
      */
     List<AbnormalMetricLog> findTop20BymachineIdOrderByTimestampDesc(String targetId);
+
+    /**
+     *  - host machine과 container의 모든 머신에서 가장 최근을 기준으로 최대 50개의 로그들을 리스트로 저장해 반환한다.
+     * 
+     * @return  최근 모든 로그들 중 최대 50개를 저장한 리스트
+     */
+    List<AbnormalMetricLog> findTop50ByOrderByTimestampDesc();
+
+    @Modifying
+    @Transactional
+    @Query("DELETE FROM AbnormalMetricLog l WHERE l.timestamp < :cutoff")
+    int deleteByTimestampBefore(@Param("cutoff") LocalDateTime cutoff);
 }

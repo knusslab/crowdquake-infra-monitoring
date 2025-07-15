@@ -45,6 +45,18 @@ public class MachineInventoryService {
     }
 
     /**
+     *  - containerId와 containerName 조합을 기준으로 종속되어 있는 hostName을 반환한다.
+     *
+     * @param containerId       container ID
+     * @param containerName     container name
+     * @return  해당 id와 name조합이 종속되어 있는 hostName
+     */
+    public String addHostNameByContainerIdAndContainerName(String containerId, String containerName) {
+
+        return String.valueOf(containerInventoryRepository.findHostNameByContainerIdAndContainerName(containerId, containerName));
+    }
+
+    /**
      *  - 파라미터로 준 metric data에서의 머신 정보들의 DB 존재 여부 판별 및 삽입 메서드
      *
      * @param metricData    metric data

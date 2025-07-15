@@ -34,6 +34,6 @@ public class MetricsByType {
 
     private String metricName; // 메트릭 이름
     private String unit; // 단위
-    private Double thresholdValue; // 임계값
+    private Double overThresholdValue; // 임계값
 
 }

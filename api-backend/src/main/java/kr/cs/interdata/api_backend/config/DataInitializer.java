@@ -75,7 +75,7 @@ public class DataInitializer implements CommandLineRunner {
                     .type(type)
                     .metricName(name)
                     .unit(unit)
-                    .thresholdValue(threshold)
+                    .overThresholdValue(threshold)
                     .build();
             metricsByTypeRepository.save(metric);
         }

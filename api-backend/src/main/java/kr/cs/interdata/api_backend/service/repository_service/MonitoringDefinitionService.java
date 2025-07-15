@@ -45,7 +45,7 @@ public class MonitoringDefinitionService {
         MetricsByType metric = new MetricsByType();
         metric.setMetricName(metricName);
         metric.setUnit(unit);
-        metric.setThresholdValue(threshold);
+        metric.setOverThresholdValue(threshold);
         metricsByTypeRepository.save(metric);
 
         logger.info("Save new metric : {}({})", metricName, unit);
@@ -64,19 +64,19 @@ public class MonitoringDefinitionService {
         metrics.forEach(metric -> {
             switch (metric.getMetricName()) {
                 case "cpu":
-                    thresholdSetting.setCpuPercent(metric.getThresholdValue().toString());
+                    thresholdSetting.setCpuPercent(String.valueOf(metric.getOverThresholdValue()));
                     break;
                 case "memory":
-                    thresholdSetting.setMemoryUsage(metric.getThresholdValue().toString());
+                    thresholdSetting.setMemoryUsage(String.valueOf(metric.getOverThresholdValue()));
                     break;
                 case "disk":
-                    thresholdSetting.setDiskIO(metric.getThresholdValue().toString());
+                    thresholdSetting.setDiskIO(String.valueOf(metric.getOverThresholdValue()));
                     break;
                 case "network":
-                    thresholdSetting.setNetworkTraffic(metric.getThresholdValue().toString());
+                    thresholdSetting.setNetworkTraffic(String.valueOf(metric.getOverThresholdValue()));
                     break;
               case "temperature":
-                    thresholdSetting.setTemperature(metric.getThresholdValue().toString());
+                    thresholdSetting.setTemperature(String.valueOf(metric.getOverThresholdValue()));
                     break;
                 default:
                     logger.warn("Unknown metric name found: {}", metric.getMetricName());
@@ -97,7 +97,7 @@ public class MonitoringDefinitionService {
         List<MetricsByType> metrics = metricsByTypeRepository.findByMetricName(metricName);
 
         // 각각의 임계값 업데이트
-        metrics.forEach(metric -> metric.setThresholdValue(thresholdValue));
+        metrics.forEach(metric -> metric.setOverThresholdValue(thresholdValue));
 
         // 일괄 저장
         metricsByTypeRepository.saveAll(metrics);
@@ -121,7 +121,7 @@ public class MonitoringDefinitionService {
         metricsList.forEach(metric -> {
             String typeKey = metric.getType().getType(); // type (host, container)
             Map<String, Double> metricMap = resultMap.computeIfAbsent(typeKey, k -> new ConcurrentHashMap<>());
-            metricMap.put(metric.getMetricName(), metric.getThresholdValue());
+            metricMap.put(metric.getMetricName(), metric.getOverThresholdValue());
         });
 
         return resultMap;

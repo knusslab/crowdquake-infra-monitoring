@@ -70,7 +70,7 @@ public class ThresholdService {
         monitoringDefinitionService.updateThresholdByMetricName("memory", Double.parseDouble(dto.getMemoryUsage()));
         monitoringDefinitionService.updateThresholdByMetricName("disk", Double.parseDouble(dto.getDiskIO()));
         monitoringDefinitionService.updateThresholdByMetricName("network", Double.parseDouble(dto.getNetworkTraffic()));
-        monitoringDefinitionService.updateThresholdByMetricName("temperature", Double.parseDouble(dto.getNetworkTraffic()));
+        monitoringDefinitionService.updateThresholdByMetricName("temperature", Double.parseDouble(dto.getTemperature()));
 
         // 임계값 ThresholdStore에 저장
         thresholdStore.updateThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
@@ -108,7 +108,7 @@ public class ThresholdService {
             record.put("targetId", log.getMachineId());
             record.put("metricName", log.getMetricName());
             record.put("threshold", log.getThreshold());
-            record.put("value", log.getValue().toString());
+            record.put("value", log.getValue());
             result.add(record);
         }
 
@@ -548,6 +548,37 @@ public class ThresholdService {
         } else {
             logger.warn("{}: {} - network 데이터를 찾을 수 없습니다.", type, machineId);
         }
+
+        // Temperature
+        if (type.equals("host")) {
+            metricName = "temperature";
+
+            JsonNode tempsNode = metricsNode.get("temperatures");
+            if (tempsNode != null && tempsNode.isObject()) {
+                double maxTemp = Double.MIN_VALUE;
+
+                Iterator<Map.Entry<String, JsonNode>> fields = tempsNode.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> entry = fields.next();
+                    double temp = entry.getValue().asDouble();
+                    if (temp > maxTemp) {
+                        maxTemp = temp;
+
+                    }
+                }
+                logger.info("temperature: {}", maxTemp);
+                metricValue = maxTemp;
+            } else {
+                metricValue = 0.0; // fallback
+            }
+
+            // threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
+            isNormal = evaluateThresholdAndLogViolation(
+                type, machineId, machineName,
+                metricName, metricValue, violationTime
+            );
+        }
+
 
     }
 

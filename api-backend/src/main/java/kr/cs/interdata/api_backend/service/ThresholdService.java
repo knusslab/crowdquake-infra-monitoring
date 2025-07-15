@@ -137,7 +137,7 @@ public class ThresholdService {
                         log.getMachineName()
                 );
             } else {
-                hostName = null;
+                hostName = log.getMachineName();
             }
 
             record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));

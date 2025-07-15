@@ -35,28 +35,36 @@ public class DataInitializer implements CommandLineRunner {
                 .orElseGet(() -> targetTypeRepository.save(TargetType.builder().type("container").build()));
 
         // 이미 저장된 메트릭은 중복 방지
-        insertMetricIfNotExists(hostType, "cpu", "%", 0.85);
+        insertMetricIfNotExists(hostType, "cpu", "%", 85.0);
         insertMetricIfNotExists(hostType, "memory", "bytes", 20000000000.0);
-        insertMetricIfNotExists(hostType, "disk", "bytes", 40000000.0);
-        insertMetricIfNotExists(hostType, "network", "bytes", 300000.0);
+        insertMetricIfNotExists(hostType, "diskReadDelta", "bytes", 40000000.0);
+        insertMetricIfNotExists(hostType, "diskWriteDelta", "bytes", 40000000.0);
+        insertMetricIfNotExists(hostType, "networkRx", "bytes", 300000.0);
+        insertMetricIfNotExists(hostType, "networkTx", "bytes", 300000.0);
         insertMetricIfNotExists(hostType, "temperature", "°C", 50.0);
 
-        insertMetricIfNotExists(containerType, "cpu", "%", 0.85);
+        insertMetricIfNotExists(containerType, "cpu", "%", 85.0);
         insertMetricIfNotExists(containerType, "memory", "bytes", 20000000000.0);
-        insertMetricIfNotExists(containerType, "disk", "bytes", 40000000.0);
-        insertMetricIfNotExists(containerType, "network", "bytes", 300000.0);
+        insertMetricIfNotExists(containerType, "diskReadDelta", "bytes", 40000000.0);
+        insertMetricIfNotExists(containerType, "diskWriteDelta", "bytes", 40000000.0);
+        insertMetricIfNotExists(containerType, "networkRx", "bytes", 300000.0);
+        insertMetricIfNotExists(containerType, "networkTx", "bytes", 300000.0);
 
         // 임계값 ThresholdStore에 저장
         thresholdStore.updateThreshold("host", "cpu", 85.0);
         thresholdStore.updateThreshold("host", "memory", 20000000000.0);
-        thresholdStore.updateThreshold("host", "disk", 40000000.0);
-        thresholdStore.updateThreshold("host", "network", 300000.0);
+        thresholdStore.updateThreshold("host", "diskReadDelta", 40000000.0);
+        thresholdStore.updateThreshold("host", "diskWriteDelta", 40000000.0);
+        thresholdStore.updateThreshold("host", "networkRx", 300000.0);
+        thresholdStore.updateThreshold("host", "networkTx", 300000.0);
         thresholdStore.updateThreshold("host", "temperature", 50.0);
 
         thresholdStore.updateThreshold("container", "cpu", 85.0);
         thresholdStore.updateThreshold("container", "memory", 20000000000.0);
-        thresholdStore.updateThreshold("container", "disk", 40000000.0);
-        thresholdStore.updateThreshold("container", "network", 300000.0);
+        thresholdStore.updateThreshold("container", "diskReadDelta", 40000000.0);
+        thresholdStore.updateThreshold("container", "diskWriteDelta", 40000000.0);
+        thresholdStore.updateThreshold("container", "networkRx", 300000.0);
+        thresholdStore.updateThreshold("container", "networkTx", 300000.0);
 
     }
 

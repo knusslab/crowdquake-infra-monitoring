@@ -69,11 +69,17 @@ public class MonitoringDefinitionService {
                 case "memory":
                     thresholdSetting.setMemoryUsage(String.valueOf(metric.getOverThresholdValue()));
                     break;
-                case "disk":
-                    thresholdSetting.setDiskIO(String.valueOf(metric.getOverThresholdValue()));
+                case "diskReadDelta":
+                    thresholdSetting.setDiskReadDelta(String.valueOf(metric.getOverThresholdValue()));
                     break;
-                case "network":
-                    thresholdSetting.setNetworkTraffic(String.valueOf(metric.getOverThresholdValue()));
+                case "diskWriteDelta":
+                    thresholdSetting.setDiskWriteDelta(String.valueOf(metric.getOverThresholdValue()));
+                    break;
+                case "networkRx":
+                    thresholdSetting.setNetworkRx(String.valueOf(metric.getOverThresholdValue()));
+                    break;
+                case "networkTx":
+                    thresholdSetting.setNetworkTx(String.valueOf(metric.getOverThresholdValue()));
                     break;
               case "temperature":
                     thresholdSetting.setTemperature(String.valueOf(metric.getOverThresholdValue()));

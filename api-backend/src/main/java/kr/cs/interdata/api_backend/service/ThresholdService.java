@@ -68,21 +68,27 @@ public class ThresholdService {
         // 각 메트릭에 대한 임계값 업데이트
         monitoringDefinitionService.updateThresholdByMetricName("cpu", Double.parseDouble(dto.getCpuPercent()));
         monitoringDefinitionService.updateThresholdByMetricName("memory", Double.parseDouble(dto.getMemoryUsage()));
-        monitoringDefinitionService.updateThresholdByMetricName("disk", Double.parseDouble(dto.getDiskIO()));
-        monitoringDefinitionService.updateThresholdByMetricName("network", Double.parseDouble(dto.getNetworkTraffic()));
+        monitoringDefinitionService.updateThresholdByMetricName("diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("networkRx", Double.parseDouble(dto.getNetworkRx()));
+        monitoringDefinitionService.updateThresholdByMetricName("networkTx", Double.parseDouble(dto.getNetworkTx()));
         monitoringDefinitionService.updateThresholdByMetricName("temperature", Double.parseDouble(dto.getTemperature()));
 
         // 임계값 ThresholdStore에 저장
         thresholdStore.updateThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
         thresholdStore.updateThreshold("host", "memory", Double.parseDouble(dto.getMemoryUsage()));
-        thresholdStore.updateThreshold("host", "disk", Double.parseDouble(dto.getDiskIO()));
-        thresholdStore.updateThreshold("host", "network", Double.parseDouble(dto.getNetworkTraffic()));
+        thresholdStore.updateThreshold("host", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateThreshold("host", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateThreshold("host", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateThreshold("host", "networkTx", Double.parseDouble(dto.getNetworkTx()));
         thresholdStore.updateThreshold("host", "temperature", Double.parseDouble(dto.getTemperature()));
 
         thresholdStore.updateThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
         thresholdStore.updateThreshold("container", "memory", Double.parseDouble(dto.getMemoryUsage()));
-        thresholdStore.updateThreshold("container", "disk", Double.parseDouble(dto.getDiskIO()));
-        thresholdStore.updateThreshold("container", "network", Double.parseDouble(dto.getNetworkTraffic()));
+        thresholdStore.updateThreshold("container", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateThreshold("container", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
 
         // 응답 생성
         Map<String, String> response = new HashMap<>();
@@ -472,8 +478,8 @@ public class ThresholdService {
         boolean isNormal;
         String cacheKey = type + ":" + machineId + ":" + machineName;
 
-        // CPU, Memory, Disk
-        for (int i = 0;i < 3;i++){
+        // CPU, Memory, DiskReadDelta, DiskWriteDelta
+        for (int i = 0;i < 4;i++){
             if (i == 0) {
                 metricName = "cpu";
                 metricValue = metricsNode.has("cpuUsagePercent")
@@ -487,14 +493,16 @@ public class ThresholdService {
                         : 0.0;
             }
             if (i == 2) {
-                metricName = "disk";
-                double diskReadBytesDelta = metricsNode.has("diskReadBytesDelta")
+                metricName = "diskReadDelta";
+                metricValue = metricsNode.has("diskReadBytesDelta")
                         ? metricsNode.get("diskReadBytesDelta").asDouble()
                         : 0.0;
-                double diskWriteBytesDelta = metricsNode.has("diskWriteBytesDelta")
-                        ? metricsNode.get("diskWriteBytesDelta").asDouble()
-                        : 0.0;
-                metricValue = diskReadBytesDelta + diskWriteBytesDelta;
+            }
+            if (i == 3) {
+                metricName = "diskWriteDelta";
+                metricValue = metricsNode.has("diskReadBytesDelta")
+                    ? metricsNode.get("diskWriteBytesDelta").asDouble()
+                    : 0.0;
             }
 
             if (metricValue == 0.0) {
@@ -511,7 +519,7 @@ public class ThresholdService {
 
 
         // 모든 메트릭이 0일 경우 → 캐시에 없을 때만 로그 저장
-        if (zeroValueCnt == 3 && !zeroStateCache.containsKey(cacheKey)) {
+        if (zeroValueCnt == 4 && !zeroStateCache.containsKey(cacheKey)) {
             storeZeroValueLog(type, machineId, machineName, violationTime);
             zeroStateCache.put(cacheKey, true);
         }
@@ -519,30 +527,46 @@ public class ThresholdService {
         // Network
         JsonNode networkNode = metricsNode.path("networkDelta");
 
-        metricName = "network";
         if (!networkNode.isMissingNode() && networkNode.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> interfaces = networkNode.fields();
-            while (interfaces.hasNext()) {
-                Map.Entry<String, JsonNode> entry = interfaces.next();
-
+            // [1] Tx 기준 평가
+            metricName = "networkTx";
+            Iterator<Map.Entry<String, JsonNode>> txInterfaces = networkNode.fields();
+            while (txInterfaces.hasNext()) {
+                Map.Entry<String, JsonNode> entry = txInterfaces.next();
                 JsonNode interfaceData = entry.getValue();
 
-                double txBytesDelta = interfaceData.has("txBytesDelta")
-                        ? interfaceData.get("txBytesDelta").asDouble()
-                        : 0.0;
-                double rxBytesDelta = interfaceData.has("rxBytesDelta")
-                        ? interfaceData.get("rxBytesDelta").asDouble()
-                        : 0.0;
-                metricValue = txBytesDelta + rxBytesDelta;
+                metricValue = interfaceData.has("txBytesDelta")
+                      ? interfaceData.get("txBytesDelta").asDouble()
+                      : 0.0;
 
-                // 각 메트릭별 threshold를 조회해 초과하면 DB에 저장 후, 로깅함.
-                isNormal = evaluateThresholdAndLogViolation(type , machineId, machineName,
-                        metricName, metricValue, violationTime);
+                    isNormal = evaluateThresholdAndLogViolation(
+                        type, machineId, machineName,
+                        metricName, metricValue, violationTime
+                    );
 
-                // 만약 어느 network에서 비정상값이 존재한다면
-                // 비정상적인 네트워크가 존재한다는 것만 알리고 iteration을 중단한다.
+                    if (!isNormal) {
+                        break; // Tx 기준 비정상이면 루프 종료
+                    }
+            }
+
+            // [2] Rx 기준 평가
+            metricName = "networkRx";
+            Iterator<Map.Entry<String, JsonNode>> rxInterfaces = networkNode.fields();
+            while (rxInterfaces.hasNext()) {
+                Map.Entry<String, JsonNode> entry = rxInterfaces.next();
+                JsonNode interfaceData = entry.getValue();
+
+                metricValue = interfaceData.has("rxBytesDelta")
+                    ? interfaceData.get("rxBytesDelta").asDouble()
+                    : 0.0;
+
+                isNormal = evaluateThresholdAndLogViolation(
+                    type, machineId, machineName,
+                    metricName, metricValue, violationTime
+                );
+
                 if (!isNormal) {
-                    break; // 하나라도 이상하면 network는 중단
+                    break; // Rx 기준 비정상이면 루프 종료
                 }
             }
         } else {
@@ -566,7 +590,6 @@ public class ThresholdService {
 
                     }
                 }
-                logger.info("temperature: {}", maxTemp);
                 metricValue = maxTemp;
             } else {
                 metricValue = 0.0; // fallback

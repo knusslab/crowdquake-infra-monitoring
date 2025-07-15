@@ -14,7 +14,7 @@ public class CacheConfig {
     @Bean
     public Cache<String, MachineMetricTimestamp> metricTimestampCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(Duration.ofSeconds(80))
+                .expireAfterWrite(Duration.ofSeconds(89))
                 .maximumSize(1000)                     // 최대 캐시 크기
                 .build();
     }

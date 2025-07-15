@@ -67,13 +67,16 @@ public class MonitoringDefinitionService {
                     thresholdSetting.setCpuPercent(metric.getThresholdValue().toString());
                     break;
                 case "memory":
-                    thresholdSetting.setMemoryPercent(metric.getThresholdValue().toString());
+                    thresholdSetting.setMemoryUsage(metric.getThresholdValue().toString());
                     break;
                 case "disk":
-                    thresholdSetting.setDiskPercent(metric.getThresholdValue().toString());
+                    thresholdSetting.setDiskIO(metric.getThresholdValue().toString());
                     break;
                 case "network":
                     thresholdSetting.setNetworkTraffic(metric.getThresholdValue().toString());
+                    break;
+              case "temperature":
+                    thresholdSetting.setTemperature(metric.getThresholdValue().toString());
                     break;
                 default:
                     logger.warn("Unknown metric name found: {}", metric.getMetricName());

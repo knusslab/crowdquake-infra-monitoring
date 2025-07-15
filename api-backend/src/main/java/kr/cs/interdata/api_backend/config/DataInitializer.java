@@ -39,6 +39,7 @@ public class DataInitializer implements CommandLineRunner {
         insertMetricIfNotExists(hostType, "memory", "bytes", 20000000000.0);
         insertMetricIfNotExists(hostType, "disk", "bytes", 40000000.0);
         insertMetricIfNotExists(hostType, "network", "bytes", 300000.0);
+        insertMetricIfNotExists(hostType, "temperature", "°C", 50.0);
 
         insertMetricIfNotExists(containerType, "cpu", "%", 0.85);
         insertMetricIfNotExists(containerType, "memory", "bytes", 20000000000.0);
@@ -50,6 +51,7 @@ public class DataInitializer implements CommandLineRunner {
         thresholdStore.updateThreshold("host", "memory", 20000000000.0);
         thresholdStore.updateThreshold("host", "disk", 40000000.0);
         thresholdStore.updateThreshold("host", "network", 300000.0);
+        thresholdStore.updateThreshold("host", "temperature", 50.0);
 
         thresholdStore.updateThreshold("container", "cpu", 85.0);
         thresholdStore.updateThreshold("container", "memory", 20000000000.0);

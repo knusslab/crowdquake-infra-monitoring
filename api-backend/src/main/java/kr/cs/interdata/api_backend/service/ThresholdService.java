@@ -13,7 +13,6 @@ import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
 import kr.cs.interdata.api_backend.service.repository_service.ContainerInventoryService;
-import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefinitionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,19 +67,21 @@ public class ThresholdService {
     public Map<String, String> setThreshold(ThresholdSetting dto) {
         // 각 메트릭에 대한 임계값 업데이트
         monitoringDefinitionService.updateThresholdByMetricName("cpu", Double.parseDouble(dto.getCpuPercent()));
-        monitoringDefinitionService.updateThresholdByMetricName("memory", Double.parseDouble(dto.getMemoryPercent()));
-        monitoringDefinitionService.updateThresholdByMetricName("disk", Double.parseDouble(dto.getDiskPercent()));
+        monitoringDefinitionService.updateThresholdByMetricName("memory", Double.parseDouble(dto.getMemoryUsage()));
+        monitoringDefinitionService.updateThresholdByMetricName("disk", Double.parseDouble(dto.getDiskIO()));
         monitoringDefinitionService.updateThresholdByMetricName("network", Double.parseDouble(dto.getNetworkTraffic()));
+        monitoringDefinitionService.updateThresholdByMetricName("temperature", Double.parseDouble(dto.getNetworkTraffic()));
 
         // 임계값 ThresholdStore에 저장
         thresholdStore.updateThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
-        thresholdStore.updateThreshold("host", "memory", Double.parseDouble(dto.getMemoryPercent()));
-        thresholdStore.updateThreshold("host", "disk", Double.parseDouble(dto.getDiskPercent()));
+        thresholdStore.updateThreshold("host", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateThreshold("host", "disk", Double.parseDouble(dto.getDiskIO()));
         thresholdStore.updateThreshold("host", "network", Double.parseDouble(dto.getNetworkTraffic()));
+        thresholdStore.updateThreshold("host", "temperature", Double.parseDouble(dto.getTemperature()));
 
         thresholdStore.updateThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
-        thresholdStore.updateThreshold("container", "memory", Double.parseDouble(dto.getMemoryPercent()));
-        thresholdStore.updateThreshold("container", "disk", Double.parseDouble(dto.getDiskPercent()));
+        thresholdStore.updateThreshold("container", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateThreshold("container", "disk", Double.parseDouble(dto.getDiskIO()));
         thresholdStore.updateThreshold("container", "network", Double.parseDouble(dto.getNetworkTraffic()));
 
         // 응답 생성
@@ -144,6 +145,7 @@ public class ThresholdService {
             record.put("machineType", log.getMachineType());
             record.put("machineId", log.getMachineId());
             record.put("machineName", log.getMachineName());
+            record.put("metricName", log.getMetricName());
             record.put("hostName", hostName);
             record.put("threshold", log.getThreshold());
             record.put("value", log.getValue());

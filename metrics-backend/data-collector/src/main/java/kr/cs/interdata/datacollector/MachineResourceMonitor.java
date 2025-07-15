@@ -14,23 +14,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+//리눅스 시스템의 자원 상태를 proc,sys 등의 시스템 파일을 통해 직접 읽어와서 JSON 형태로 반환
 public class MachineResourceMonitor {
-    private static final String HOST_ID_FILE = getDefaultHostIdPath();
-    private static final String PROC_PATH = "/host/proc";
+    private static final String HOST_ID_FILE = getDefaultHostIdPath(); //고유한 호스트 id를 저장하는 파일 경로
+    private static final String PROC_PATH = "/host/proc"; // 호스트의 proc 디렉토리를 컨테이너 내에서 접근할 경로
 
     private long prevIdle = 0;
     private long prevTotal = 0;
 
+    //운영체제별 호스트 ID 파일 경로 반환
+    //윈도우 안쓰니까 리눅스만 해도 될 듯
     private static String getDefaultHostIdPath() {
         String osName = System.getProperty("os.name").toLowerCase();
-        if (osName.contains("win")) {
+        if (osName.contains("win")) {//윈도우
             return System.getProperty("java.io.tmpdir") + "host-unique-id.txt";
-        } else {
+        } else {//리눅스
             return "/tmp/host-unique-id.txt";
         }
     }
 
     public MachineResourceMonitor() {
+        //초기화 시 CPU 사용률 계산을 위한 이전 시점의 idle/total 값을 저장해둠
         try {
             long[] cpuTimes = readCpuTimes();
             prevIdle = cpuTimes[0];
@@ -41,19 +45,20 @@ public class MachineResourceMonitor {
         }
     }
 
+    //proc/stats의 cpu 라인에서 idle/total 시간 누적값 읽음
     private long[] readCpuTimes() throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/stat"));
         for (String line : lines) {
             if (line.startsWith("cpu ")) {
                 String[] parts = line.trim().split("\\s+");
-                long user = Long.parseLong(parts[1]);
-                long nice = Long.parseLong(parts[2]);
-                long system = Long.parseLong(parts[3]);
-                long idle = Long.parseLong(parts[4]);
-                long iowait = Long.parseLong(parts[5]);
-                long irq = Long.parseLong(parts[6]);
-                long softirq = Long.parseLong(parts[7]);
-                long steal = Long.parseLong(parts[8]);
+                long user = Long.parseLong(parts[1]);//user: 사용자 프로세스가 사용한 시간
+                long nice = Long.parseLong(parts[2]);//nice: nice로 낮춰진 우선순위 프로세스가 사용한 시간
+                long system = Long.parseLong(parts[3]);//system: 커널이 사용한 시간
+                long idle = Long.parseLong(parts[4]);//idle: CPU가 놀고 있었던 시간
+                long iowait = Long.parseLong(parts[5]);//iowait: I/O를 기다리며 idle 상태였던 시간
+                long irq = Long.parseLong(parts[6]);//irq: 하드웨어 인터럽트 처리 시간
+                long softirq = Long.parseLong(parts[7]);//softirq: 소프트웨어 인터럽트 처리 시간
+                long steal = Long.parseLong(parts[8]);//steal: 가상화 환경에서 cpu가 할당되지 못해 기다린 시간
                 long total = user + nice + system + idle + iowait + irq + softirq + steal;
                 return new long[]{idle, total};
             }
@@ -61,7 +66,10 @@ public class MachineResourceMonitor {
         throw new IOException("cpu line not found in /proc/stat");
     }
 
+    //cpu 사용률 계산: (전체 시간 변화량 - idle  변화량)/전체 시간 변화량*100
     public double getCpuUsagePercent() {
+        //proc/stat의 cpu 라인을 읽어와서 현재와 이전의 idle, total 값을 비교해 cpu 사용률을 계산
+        //idle: cpu가 아무 일도 안한 시간
         try {
             long[] cpuTimes = readCpuTimes();
             long idle = cpuTimes[0];
@@ -82,7 +90,9 @@ public class MachineResourceMonitor {
         }
     }
 
+    //proc/meminfo에서 MemTotal, MemAvailable 값을 읽어 메모리 상태 계산
     public long getTotalMemoryBytes() {
+
         try {
             List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/meminfo"));
             for (String line : lines) {
@@ -116,6 +126,7 @@ public class MachineResourceMonitor {
         return total - avail;
     }
 
+    // proc/mounts에서 마운트된 경로를 읽고, 각 파일시스템의 용량을 Files.getFileStore()로 조회
     public long getTotalDiskBytes() {
         long total = 0;
         try {
@@ -160,6 +171,8 @@ public class MachineResourceMonitor {
         return getTotalDiskBytes() - getFreeDiskBytes();
     }
 
+    //proc/diskstats에서 각 디스크 장치의 읽기/쓰기 섹처 수를 읽어 바이트로 변환함
+    //섹터 수*512= 바이트 수
     public long getDiskReadBytes() {
         long totalReadBytes = 0;
         try {
@@ -190,6 +203,7 @@ public class MachineResourceMonitor {
         return totalWriteBytes;
     }
 
+    //proc/diskstats에서 각 디스크 장치의 읽기 및 쓰기 횟수(누적) 합산
     public long getDiskReadCount() {
         long totalReads = 0;
         try {
@@ -221,6 +235,7 @@ public class MachineResourceMonitor {
     }
 
     private String getOrCreateHostId() {
+        //tmp/host-unique-id.txt 파일이 있으면 읽고, 없으면 UUID를 생성해서 저장
         try {
             Path path = Paths.get(HOST_ID_FILE);
             if (Files.exists(path)) {

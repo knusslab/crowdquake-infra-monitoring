@@ -184,6 +184,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("diskReadBytesDelta", deltaDiskRead);
         result.put("diskWriteBytesDelta", deltaDiskWrite);
         result.put("networkDelta", netDelta);
+        result.put("temperatures", resourceMap.get("temperatures"));
 
         return result;
     }

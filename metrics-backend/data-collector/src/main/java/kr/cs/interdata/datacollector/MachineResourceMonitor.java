@@ -1,6 +1,3 @@
-//package kr.cs.interdata.datacollector;
-//
-
 package kr.cs.interdata.datacollector;
 
 import com.google.gson.Gson;
@@ -13,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.file.DirectoryStream;
+import java.util.ArrayList;
 
 //리눅스 시스템의 자원 상태를 proc,sys 등의 시스템 파일을 통해 직접 읽어와서 JSON 형태로 반환
 public class MachineResourceMonitor {
@@ -21,6 +20,10 @@ public class MachineResourceMonitor {
 
     private long prevIdle = 0;
     private long prevTotal = 0;
+
+
+    private static final String SYS_THERMAL_PATH = "/host/sys/class/thermal";
+    private static final String SYS_HWMON_PATH = "/host/sys/class/hwmon";
 
     //운영체제별 호스트 ID 파일 경로 반환
     //윈도우 안쓰니까 리눅스만 해도 될 듯
@@ -88,6 +91,101 @@ public class MachineResourceMonitor {
         } catch (IOException e) {
             return 0.0;
         }
+    }
+
+    //리눅스 호스트 시스템의 온도 센서 데이터를 읽어와 센서 이름과 측정값(섭씨 온도)를 Map<stting,Double> 형태로 반환함
+    //1. /sys/class/thermal/thermal_zone*/temp (thermal_zone 방식)
+    //2. /sys/class/hwmon/hwmon*/tempN_input   (하드웨어 모니터링 칩 방식)
+    // 3. /proc/acpi/thermal_zone/*/temperature (ACPI 구형 시스템)
+    // 결과 Map 반환 (각 센서 이름 : °C 값)
+    public Map<String, Double> getHostTemperatureMap() {
+        Map<String, Double> tempMap = new LinkedHashMap<>();//센서 이름과 온도 값을 저장
+
+        // 1. thermal_zone 방식
+        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/sys/class/thermal"), "thermal_zone*")) {
+            for (Path zone : zones) {
+                String zoneName = zone.getFileName().toString();  // thermal_zone0
+
+                //센서 타입 정보
+                String type = "unknown";
+                Path typePath = zone.resolve("type");
+                if (Files.exists(typePath)) {
+                    try {
+                        type = Files.readString(typePath).trim();
+                    } catch (IOException ignore) {}
+                }
+
+                //실제 온도 값 들어가 있음
+                Path tempFile = zone.resolve("temp");
+                if (Files.exists(tempFile)) {
+                    try {
+                        String raw = Files.readString(tempFile).trim();
+                        double tempC = Double.parseDouble(raw) / 1000.0; //m°C(milli-Celsius) 단위로 들어와서 1000으로 나눠줌
+                        tempMap.put(type + " (" + zoneName + ")", tempC);
+                    } catch (Exception ignore) {}
+                }
+            }
+        } catch (Exception ignore) {}
+
+        // 2. hwmon 방식
+        try (DirectoryStream<Path> hwmons = Files.newDirectoryStream(Paths.get("/host/sys/class/hwmon"))) {
+            for (Path hwmon : hwmons) {
+                //센서 장치 이름
+                String name = "hwmon";
+                Path namePath = hwmon.resolve("name");
+                if (Files.exists(namePath)) {
+                    try {
+                        name = Files.readString(namePath).trim();
+                    } catch (IOException ignore) {}
+                }
+
+                // 최대 temp1_input에서 temp5_input 까지 시도
+                for (int i = 1; i <= 5; i++) {
+                    Path tempFile = hwmon.resolve("temp" + i + "_input");
+                    Path labelFile = hwmon.resolve("temp" + i + "_label");
+                    String label = "temp" + i;
+                    // tempN_label 파일이 있다면 센서 라벨 읽기
+                    if (Files.exists(labelFile)) {
+                        try {
+                            label = Files.readString(labelFile).trim();
+                        } catch (IOException ignore) {}
+                    }
+
+                    // 온도 데이터 읽기
+                    if (Files.exists(tempFile)) {
+                        try {
+                            String raw = Files.readString(tempFile).trim();
+                            double tempC = Double.parseDouble(raw) / 1000.0; //m°C(milli-Celsius) 단위로 들어와서 1000으로 나눠줌
+                            tempMap.put(name + "/" + label, tempC);
+                        } catch (Exception ignore) {}
+                    }
+                }
+            }
+        } catch (Exception ignore) {}
+
+        // 3. ACPI 구형 방식
+        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/proc/acpi/thermal_zone"))) {
+            for (Path zone : zones) {
+                String zoneName = zone.getFileName().toString();
+                Path tempFile = zone.resolve("temperature");
+                if (Files.exists(tempFile)) {
+                    try {
+                        String raw = Files.readString(tempFile).trim();
+                        //문자열 파싱해서 숫자만 추출
+                        String[] parts = raw.split("\\s+");
+                        for (String part : parts) {
+                            try {
+                                double val = Double.parseDouble(part);//숫자면 온도로 인식
+                                tempMap.put("acpi (" + zoneName + ")", val);
+                                break;
+                            } catch (NumberFormatException ignore) {}
+                        }
+                    } catch (Exception ignore) {}
+                }
+            }
+        } catch (Exception ignore) {}
+
+        return tempMap;
     }
 
     //proc/meminfo에서 MemTotal, MemAvailable 값을 읽어 메모리 상태 계산
@@ -265,9 +363,12 @@ public class MachineResourceMonitor {
         jsonMap.put("diskReadBytes", getDiskReadBytes());
         jsonMap.put("diskWriteBytes", getDiskWriteBytes());
         jsonMap.put("network", networkMonitor.getNetworkInfoJson());
+        jsonMap.put("temperatures", getHostTemperatureMap());
         return new Gson().toJson(jsonMap);
     }
 }
+
+//package kr.cs.interdata.datacollector;
 
 //import com.google.gson.Gson;
 //import oshi.SystemInfo;

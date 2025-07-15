@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
+import kr.cs.interdata.api_backend.service.repository_service.ContainerInventoryService;
 import kr.cs.interdata.api_backend.service.repository_service.MachineInventoryService;
 import kr.cs.interdata.api_backend.service.repository_service.MonitoringDefinitionService;
 import org.slf4j.Logger;
@@ -26,24 +27,25 @@ public class ThresholdService {
 
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> zeroStateCache = new ConcurrentHashMap<>();
     @Autowired
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Logger logger = LoggerFactory.getLogger(ThresholdService.class);
 
     private final AbnormalDetectionService abnormalDetectionService;
     private final MonitoringDefinitionService monitoringDefinitionService;
-    private final MachineInventoryService machineInventoryService;
+    private final ContainerInventoryService containerInventoryService;
     private final ThresholdStore thresholdStore;
 
 
     @Autowired
     public ThresholdService(ThresholdStore thresholdStore,
                             AbnormalDetectionService abnormalDetectionService,
-                            MonitoringDefinitionService monitoringDefinitionService, MachineInventoryService machineInventoryService) {
+                            MonitoringDefinitionService monitoringDefinitionService, ContainerInventoryService containerInventoryService) {
         this.thresholdStore = thresholdStore;
         this.abnormalDetectionService = abnormalDetectionService;
         this.monitoringDefinitionService = monitoringDefinitionService;
-        this.machineInventoryService = machineInventoryService;
+        this.containerInventoryService = containerInventoryService;
     }
 
     /**
@@ -129,7 +131,7 @@ public class ThresholdService {
             // ContainerInventory 엔티티의 machineId와 machineName을 파싱해서 둘 조합이 있으면 종속된 hostName을 넘겨줌
             String hostName;
             if (log.getMachineType().equals("container")) {
-                hostName = machineInventoryService.addHostNameByContainerIdAndContainerName(
+                hostName = containerInventoryService.addHostNameByContainerIdAndContainerName(
                         log.getMachineId(),
                         log.getMachineName()
                 );
@@ -144,7 +146,7 @@ public class ThresholdService {
             record.put("machineName", log.getMachineName());
             record.put("hostName", hostName);
             record.put("threshold", log.getThreshold());
-            record.put("value", log.getValue().toString());
+            record.put("value", log.getValue());
 
             result.add(record);
         }
@@ -466,6 +468,7 @@ public class ThresholdService {
         int zeroValueCnt = 0;
         String metricName = null;
         boolean isNormal;
+        String cacheKey = type + ":" + machineId + ":" + machineName;
 
         // CPU, Memory, Disk
         for (int i = 0;i < 3;i++){
@@ -491,15 +494,24 @@ public class ThresholdService {
                         : 0.0;
                 metricValue = diskReadBytesDelta + diskWriteBytesDelta;
             }
-            if (metricValue == 0.0) { zeroValueCnt++ ; continue;}
+
+            if (metricValue == 0.0) {
+                zeroValueCnt++;
+            } else {
+                // 정상값이 들어오면 캐시 해제
+                zeroStateCache.remove(cacheKey);
+            }
 
             // 각 메트릭별 threshold를 조회해 초과하면 db저장을 위해 api-backend로 데이터 보낸 후, 로깅함.
             isNormal = evaluateThresholdAndLogViolation(type , machineId, machineName,
                     metricName, metricValue, violationTime);
         }
 
-        if (zeroValueCnt == 3) {
+
+        // 모든 메트릭이 0일 경우 → 캐시에 없을 때만 로그 저장
+        if (zeroValueCnt == 3 && !zeroStateCache.containsKey(cacheKey)) {
             storeZeroValueLog(type, machineId, machineName, violationTime);
+            zeroStateCache.put(cacheKey, true);
         }
 
         // Network
@@ -534,6 +546,7 @@ public class ThresholdService {
         } else {
             logger.warn("{}: {} - network 데이터를 찾을 수 없습니다.", type, machineId);
         }
+
     }
 
     /**

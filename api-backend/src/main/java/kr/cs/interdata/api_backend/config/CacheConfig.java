@@ -6,7 +6,7 @@ import kr.cs.interdata.api_backend.infra.cache.MachineMetricTimestamp;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 @Configuration
 public class CacheConfig {
@@ -14,7 +14,7 @@ public class CacheConfig {
     @Bean
     public Cache<String, MachineMetricTimestamp> metricTimestampCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(1, TimeUnit.MINUTES)
+                .expireAfterWrite(Duration.ofSeconds(80))
                 .maximumSize(1000)                     // 최대 캐시 크기
                 .build();
     }

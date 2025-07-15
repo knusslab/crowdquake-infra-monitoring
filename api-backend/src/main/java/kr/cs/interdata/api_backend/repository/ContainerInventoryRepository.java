@@ -35,7 +35,7 @@ public interface ContainerInventoryRepository extends JpaRepository<ContainerInv
      * @return  해당 조건들을 모두 만족하는 row가 있으면 해당 row의 hostName을 반환
      */
     @Query("SELECT c.hostName FROM ContainerInventory c WHERE c.containerId = :containerId AND c.containerName = :containerName")
-    Optional<String> findHostNameByContainerIdAndContainerName(@Param("containerId") String containerId,
+    String findHostNameByContainerIdAndContainerName(@Param("containerId") String containerId,
                                                                @Param("containerName") String containerName);
 
 

@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -465,6 +466,18 @@ public class ThresholdService {
 
         logger.info("Client Connected: {}", emitterId);
         return emitter;
+    }
+
+    @Scheduled(fixedRate = 5 * 60 * 1000) // 5분마다
+    public void cleanUpEmitters() {
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(SseEmitter.event().name("ping").data("keepalive"));
+            } catch (Exception e) {
+                emitters.remove(entry.getKey());
+                logger.info("Cleaned up dead emitter: {}", entry.getKey());
+            }
+        }
     }
 
 

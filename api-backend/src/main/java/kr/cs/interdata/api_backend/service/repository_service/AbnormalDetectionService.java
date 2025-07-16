@@ -36,6 +36,7 @@ public class AbnormalDetectionService {
      * @param id        이상값이 발생한 머신의 ID
      * @param name      이상값이 발생한 머신의 name
      * @param metric    이상값이 발생한 메트릭 이름
+     * @param threshold 임계값
      * @param value     이상값
      * @param timestamp 이상값이 발생한 시각
      */
@@ -67,6 +68,39 @@ public class AbnormalDetectionService {
      * @param type      이상값이 발생한 머신의 type
      * @param id        이상값이 발생한 머신의 ID
      * @param name      이상값이 발생한 머신의 name
+     * @param metric    이상값이 발생한 메트릭 이름
+     * @param threshold 임계값
+     * @param value     이상값
+     * @param timestamp 이상값이 발생한 시각
+     */
+    public void storeThresholdDeceeded(String type,
+                                       String id,
+                                       String name,
+                                       String metric,
+                                       String threshold, String value, LocalDateTime timestamp) {
+        AbnormalMetricLog abn = new AbnormalMetricLog();
+
+        abn.setMessageType("thresholdDeceeded");
+
+        abn.setMachineType(type);
+        abn.setMachineId(id);
+        abn.setMachineName(name);
+        abn.setMetricName(metric);
+        abn.setThreshold(Double.valueOf(threshold));
+        abn.setValue(Double.valueOf(value));
+        abn.setTimestamp(timestamp);
+        abnormalMetricLogRepository.save(abn);
+    }
+
+    /**
+     *  - 이상 로그를 저장하는 메서드 3
+     *  <p>
+     *  - 데이터를 {@code AbnormalMetricLog}에 저장한다.
+     *  </p>
+     *
+     * @param type      이상값이 발생한 머신의 type
+     * @param id        이상값이 발생한 머신의 ID
+     * @param name      이상값이 발생한 머신의 name
      * @param timestamp 이상값이 발생한 시각
      */
     public void storeZeroValue(String type,
@@ -85,7 +119,7 @@ public class AbnormalDetectionService {
     }
 
     /**
-     * - 이상 로그를 저장하는 메서드 3
+     * - 이상 로그를 저장하는 메서드 4
      * <p>
      * - 데이터를 {@code AbnormalMetricLog}에 저장한다.
      * </p>
@@ -111,7 +145,7 @@ public class AbnormalDetectionService {
     }
 
     /**
-     * - 이상 로그를 저장하는 메서드 4
+     * - 이상 로그를 저장하는 메서드 5
      * <p>
      * - 데이터를 {@code AbnormalMetricLog}에 저장한다.
      * </p>

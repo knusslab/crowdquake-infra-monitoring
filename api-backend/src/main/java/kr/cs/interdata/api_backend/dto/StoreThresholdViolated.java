@@ -8,7 +8,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class StoreThresholdExceeded {
+public class StoreThresholdViolated {
 
     private String type;    // 메세지를 보낸 머신의 타입: 호스트, 컨테이너
     private String machineId;    // 메시지를 보낸 호스트/컨테이너의 머신 id

@@ -27,6 +27,8 @@ public class ThresholdService {
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final Map<String, Boolean> zeroStateCache = new ConcurrentHashMap<>();
+    private final Map<String, Double> overThresholdMap = new LinkedHashMap<>();
+    private final Map<String, Double> underThresholdMap = new LinkedHashMap<>();
     @Autowired
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Logger logger = LoggerFactory.getLogger(ThresholdService.class);
@@ -64,7 +66,41 @@ public class ThresholdService {
      * @param dto   각 메트릭의 threshold값
      * @return  ok 메세지를 보낸다.
      */
-    public Map<String, String> setThreshold(ThresholdSetting dto) {
+    public ThresholdErrorResponse setThreshold(ThresholdSetting dto) {
+        underThresholdMap.clear();
+        underThresholdMap.putAll(thresholdStore.getUnderThresholdValues());
+
+        Map<String, String> underThresholdStrMap = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> entry : underThresholdMap.entrySet()) {
+            underThresholdStrMap.put(entry.getKey(), String.valueOf(entry.getValue()));
+        }
+
+        try {
+            if (Double.parseDouble(dto.getCpuPercent()) < underThresholdMap.get("cpuPercent")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getMemoryUsage()) < underThresholdMap.get("memoryUsage")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getDiskReadDelta()) < underThresholdMap.get("diskReadDelta")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getDiskWriteDelta()) < underThresholdMap.get("diskWriteDelta")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getNetworkRx()) < underThresholdMap.get("networkRx")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getNetworkTx()) < underThresholdMap.get("networkTx")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getTemperature()) < underThresholdMap.get("temperature")) {
+                return new ThresholdErrorResponse(errorMessage("overThresholdValue"), underThresholdStrMap);
+            }
+        } catch (NumberFormatException e) {
+            return new ThresholdErrorResponse("Invalid number format in one or more fields.", underThresholdStrMap);
+        }
+
         // 각 메트릭에 대한 임계값 업데이트
         monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "cpu", Double.parseDouble(dto.getCpuPercent()));
         monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "memory", Double.parseDouble(dto.getMemoryUsage()));
@@ -90,10 +126,7 @@ public class ThresholdService {
         thresholdStore.updateOverThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
         thresholdStore.updateOverThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
 
-        // 응답 생성
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "ok");
-        return response;
+        return null;
     }
 
     public ThresholdSetting getUnderThreshold() {
@@ -104,7 +137,41 @@ public class ThresholdService {
         return monitoringDefinitionService.findThresholdByType("underThresholdValue", "host");
     }
 
-    public Map<String, String> setUnderThreshold(ThresholdSetting dto) {
+    public ThresholdErrorResponse setUnderThreshold(ThresholdSetting dto) {
+        overThresholdMap.clear();
+        overThresholdMap.putAll(thresholdStore.getOverThresholdValues());
+
+        Map<String, String> overThresholdStrMap = new LinkedHashMap<>();
+        for (Map.Entry<String, Double> entry : overThresholdMap.entrySet()) {
+            overThresholdStrMap.put(entry.getKey(), String.valueOf(entry.getValue()));
+        }
+
+        try {
+            if (Double.parseDouble(dto.getCpuPercent()) > overThresholdMap.get("cpuPercent")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getMemoryUsage()) > overThresholdMap.get("memoryUsage")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getDiskReadDelta()) > overThresholdMap.get("diskReadDelta")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getDiskWriteDelta()) > overThresholdMap.get("diskWriteDelta")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getNetworkRx()) > overThresholdMap.get("networkRx")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getNetworkTx()) > overThresholdMap.get("networkTx")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+            if (Double.parseDouble(dto.getTemperature()) > overThresholdMap.get("temperature")) {
+                return new ThresholdErrorResponse(errorMessage("underThresholdValue"), overThresholdStrMap);
+            }
+        } catch (NumberFormatException e) {
+            return new ThresholdErrorResponse("Invalid number format in one or more fields.", overThresholdStrMap);
+        }
+
         // 각 메트릭에 대한 임계값 업데이트
         monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "cpu", Double.parseDouble(dto.getCpuPercent()));
         monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "memory", Double.parseDouble(dto.getMemoryUsage()));
@@ -130,10 +197,19 @@ public class ThresholdService {
         thresholdStore.updateUnderThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
         thresholdStore.updateUnderThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
 
-        // 응답 생성
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "ok");
-        return response;
+        return null;
+    }
+
+    private String errorMessage(String type) {
+        if (type.equals("underThresholdValue")) {
+            return "A value below the threshold cannot be greater than a value above the threshold.";
+        }
+        else if (type.equals("overThresholdValue")) {
+            return "A value above the threshold cannot be lower than a value below the threshold.";
+        }
+        else {
+            return null;
+        }
     }
 
     /**

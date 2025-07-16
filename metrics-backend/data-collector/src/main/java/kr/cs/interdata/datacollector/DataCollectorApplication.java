@@ -20,6 +20,10 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 @SpringBootApplication
 public class DataCollectorApplication {
     public static void main(String[] args) {
@@ -87,25 +91,6 @@ class KafkaProducerRunner implements CommandLineRunner {
                 // 2. 컨테이너 정보 수집 및 delta 계산
                 Map<String, Map<String, Object>> containersData = collectAllContainerResource();
 
-                /*
-                여기서부터 temperature 임의의 값 put
-                 */
-                // 3. 임의 온도 데이터 생성
-                Map<String, Double> temperatures = new HashMap<>();
-                temperatures.put("x86_pkg_temp (thermal_zone0)", 46.0);
-                temperatures.put("coretemp/Package id 0", 46.0);
-                temperatures.put("coretemp/Core 0", 31.0);
-                temperatures.put("coretemp/Core 1", 30.0);
-                temperatures.put("coretemp/Core 2", 31.0);
-                temperatures.put("coretemp/Core 3", 46.0);
-
-                // 4. 통합 JSON 조립
-                hostData.put("temperatures", temperatures);
-                /*
-                여기까지 임의의 값.
-                TODO: 데이터 제대로 받아오면 지워야 할 부분
-                 */
-
                 // 3. 통합 JSON 조립
                 hostData.put("containers", containersData);
 
@@ -168,7 +153,8 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("hostId", resourceMap.get("hostId"));
         //result.put("name", hostName);
         try {
-            hostName = java.net.InetAddress.getLocalHost().getHostName();
+            hostName = Files.readString(Paths.get("/host/etc/hostname")).trim();
+            //hostName = Files.readString(Paths.get("/host/proc/sys/kernel/hostname")).trim();
         } catch (Exception e) {
             hostName = "unknown";
         }
@@ -179,6 +165,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("diskReadBytesDelta", deltaDiskRead);
         result.put("diskWriteBytesDelta", deltaDiskWrite);
         result.put("networkDelta", netDelta);
+        result.put("temperatures", resourceMap.get("temperatures"));
 
         return result;
     }

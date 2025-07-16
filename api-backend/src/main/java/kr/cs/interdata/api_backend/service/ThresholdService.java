@@ -30,8 +30,7 @@ public class ThresholdService {
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final Map<String, Boolean> zeroStateCache = new ConcurrentHashMap<>();
-    private final Map<String, Double> overThresholdMap = new LinkedHashMap<>();
-    private final Map<String, Double> underThresholdMap = new LinkedHashMap<>();
+
     @Autowired
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Logger logger = LoggerFactory.getLogger(ThresholdService.class);
@@ -70,8 +69,7 @@ public class ThresholdService {
      * @return  ok 메세지를 보낸다.
      */
     public ThresholdErrorResponse setThreshold(ThresholdSetting dto) {
-        underThresholdMap.clear();
-        underThresholdMap.putAll(thresholdStore.getUnderThresholdValues());
+        Map<String, Double> underThresholdMap = new LinkedHashMap<>(thresholdStore.getUnderThresholdValues());
 
         Map<String, String> underThresholdStrMap = new LinkedHashMap<>();
         for (Map.Entry<String, Double> entry : underThresholdMap.entrySet()) {
@@ -141,8 +139,7 @@ public class ThresholdService {
     }
 
     public ThresholdErrorResponse setUnderThreshold(ThresholdSetting dto) {
-        overThresholdMap.clear();
-        overThresholdMap.putAll(thresholdStore.getOverThresholdValues());
+        Map<String, Double> overThresholdMap = new LinkedHashMap<>(thresholdStore.getOverThresholdValues());
 
         Map<String, String> overThresholdStrMap = new LinkedHashMap<>();
         for (Map.Entry<String, Double> entry : overThresholdMap.entrySet()) {

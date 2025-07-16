@@ -1,4 +1,4 @@
-package kr.cs.interdata.api_backend.dto;
+package kr.cs.interdata.api_backend.dto.abnormal_log_dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;

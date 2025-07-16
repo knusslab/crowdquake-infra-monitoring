@@ -1,4 +1,4 @@
-package kr.cs.interdata.api_backend.dto;
+package kr.cs.interdata.api_backend.dto.abnormal_log_dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Getter;
@@ -8,9 +8,9 @@ import java.time.LocalDateTime;
 
 @Setter
 @Getter
-public class AlertZerovalue {
+public class AlertTimeout {
 
-    private String messageType = "zerovalue";
+    private String messageType = "timeout";
 
     private String machineId;    // 메시지를 보낸 호스트/컨테이너의 id
     private String machineName;  // 메시지를 보낸 호스트/컨테이너의 name

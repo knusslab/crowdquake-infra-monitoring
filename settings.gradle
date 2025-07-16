@@ -3,7 +3,5 @@ rootProject.name = 'server-monitorings'
 include 'metrics-backend'
 include 'metrics-backend:producer'
 include 'metrics-backend:consumer'
-include 'metrics-backend:container-data-collector'
-include 'metrics-backend:machine-data-collector'
+include 'metrics-backend:data-collector'
 include 'api-backend'
-

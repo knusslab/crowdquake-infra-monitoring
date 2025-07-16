@@ -1,30 +1,20 @@
 services:
-  container-data-collector:
-    image: isslab/im-container-metrics-collector
-    container_name: container-data-collector
+  data-collector:
+    image: isslab/im-data-collector:latest  # 직접 빌드한 이미지로 변경
+    container_name: data-collector
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /dev:/host/dev:ro
+      - /etc/hostname:/host/etc/hostname:ro
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
-      - KAFKA_TOPIC_HOST=${KAFKA_TOPIC_HOST}
-      - KAFKA_TOPIC_CONTAINER=${KAFKA_TOPIC_CONTAINER}
+      - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}
       - TZ=${TZ}
     ports:
       - "8001:8001"
-    networks:
-      - monitoring_network
-    restart: always
-
-  machine-data-collector:
-    image: isslab/im-host-metrics-collector
-    container_name: machine-data-collector
-    environment:
-      - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
-      - KAFKA_TOPIC_HOST=${KAFKA_TOPIC_HOST}
-      - TZ=${TZ}
-    ports:
-      - "8002:8002"
     networks:
       - monitoring_network
     restart: always

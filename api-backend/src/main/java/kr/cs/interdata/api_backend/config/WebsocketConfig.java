@@ -1,8 +1,7 @@
 package kr.cs.interdata.api_backend.config;
 
-import kr.cs.interdata.api_backend.infra.MetricWebsocketHandler;
+import kr.cs.interdata.api_backend.infra.websocket.MetricWebsocketHandler;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;

@@ -18,11 +18,8 @@ public class KafkaProducerService {
     private final Gson gson = new Gson();
     private final Logger logger = LoggerFactory.getLogger(KafkaProducerService.class);
 
-    @Value("${KAFKA_TOPIC_HOST}")
-    private String topic_host;
-
-    @Value("${KAFKA_TOPIC_CONTAINER}")
-    private String topic_container;
+    @Value("${KAFKA_TOPIC_NAME}")
+    private String topic_name;
 
     @Autowired
     public KafkaProducerService(KafkaTemplate<String, String> kafkaTemplate) {
@@ -30,20 +27,7 @@ public class KafkaProducerService {
     }
 
     public void routeMessageBasedOnType(String jsonPayload) {
-        JsonObject json = gson.fromJson(jsonPayload, JsonObject.class);
-        String type = json.get("type").getAsString();
-
-        String topic;
-        if ("host".equalsIgnoreCase(type)) {
-            topic = topic_host;
-        } else if ("container".equalsIgnoreCase(type)) {
-            topic = topic_container;
-        } else {
-            topic = null;
-            logger.error("Unknown topic type: {}", type);
-        }
-
-        kafkaTemplate.send(topic, jsonPayload);
+        kafkaTemplate.send(topic_name, jsonPayload);
         kafkaTemplate.flush();
     }
 }

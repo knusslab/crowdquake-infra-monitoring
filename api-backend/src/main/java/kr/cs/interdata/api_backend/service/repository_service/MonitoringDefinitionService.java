@@ -45,7 +45,7 @@ public class MonitoringDefinitionService {
         MetricsByType metric = new MetricsByType();
         metric.setMetricName(metricName);
         metric.setUnit(unit);
-        metric.setThresholdValue(threshold);
+        metric.setOverThresholdValue(threshold);
         metricsByTypeRepository.save(metric);
 
         logger.info("Save new metric : {}({})", metricName, unit);
@@ -57,23 +57,67 @@ public class MonitoringDefinitionService {
      * @param typeName "host" 또는 "container"와 같은 타입명
      * @return ThresholdSetting 객체
      */
-    public ThresholdSetting findThresholdByType(String typeName) {
+    public ThresholdSetting findThresholdByType(String type, String typeName) {
         List<MetricsByType> metrics = metricsByTypeRepository.findByType_Type(typeName);
 
         ThresholdSetting thresholdSetting = new ThresholdSetting();
         metrics.forEach(metric -> {
             switch (metric.getMetricName()) {
                 case "cpu":
-                    thresholdSetting.setCpuPercent(metric.getThresholdValue().toString());
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setCpuPercent(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setCpuPercent(String.valueOf(metric.getUnderThresholdValue()));
+                    }
                     break;
                 case "memory":
-                    thresholdSetting.setMemoryPercent(metric.getThresholdValue().toString());
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setMemoryUsage(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setMemoryUsage(String.valueOf(metric.getUnderThresholdValue()));
+                    }
                     break;
-                case "disk":
-                    thresholdSetting.setDiskPercent(metric.getThresholdValue().toString());
+                case "diskReadDelta":
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setDiskReadDelta(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setDiskReadDelta(String.valueOf(metric.getUnderThresholdValue()));
+                    }
                     break;
-                case "network":
-                    thresholdSetting.setNetworkTraffic(metric.getThresholdValue().toString());
+                case "diskWriteDelta":
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setDiskWriteDelta(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setDiskWriteDelta(String.valueOf(metric.getUnderThresholdValue()));
+                    }
+                    break;
+                case "networkRx":
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setNetworkRx(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setNetworkRx(String.valueOf(metric.getUnderThresholdValue()));
+                    }
+                    break;
+                case "networkTx":
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setNetworkTx(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setNetworkTx(String.valueOf(metric.getUnderThresholdValue()));
+                    }
+                    break;
+                case "temperature":
+                    if (type.equals("overThresholdValue")) {
+                        thresholdSetting.setTemperature(String.valueOf(metric.getOverThresholdValue()));
+                    }
+                    else {
+                        thresholdSetting.setTemperature(String.valueOf(metric.getUnderThresholdValue()));
+                    }
                     break;
                 default:
                     logger.warn("Unknown metric name found: {}", metric.getMetricName());
@@ -89,17 +133,25 @@ public class MonitoringDefinitionService {
      * @param metricName 메트릭 이름 (cpu, memory, disk, network)
      * @param thresholdValue 업데이트할 임계값
      */
-    public void updateThresholdByMetricName(String metricName, double thresholdValue) {
+    public void updateThresholdByMetricName(String type, String metricName, double thresholdValue) {
         // 해당 메트릭 이름을 가진 모든 MetricsByType 조회
         List<MetricsByType> metrics = metricsByTypeRepository.findByMetricName(metricName);
 
         // 각각의 임계값 업데이트
-        metrics.forEach(metric -> metric.setThresholdValue(thresholdValue));
+        if(type.equals("overThresholdValue")){
+            metrics.forEach(metric -> metric.setOverThresholdValue(thresholdValue));
+        }
+        else if (type.equals("underThresholdValue")){
+            metrics.forEach(metric -> metric.setUnderThresholdValue(thresholdValue));
+        }
+        else {
+            logger.error("Unknown type found: {}, please -underThresholdValue- or -overThresholdValue-", type);
+        }
 
         // 일괄 저장
         metricsByTypeRepository.saveAll(metrics);
 
-        logger.info("Updated threshold for {} metrics to {}", metricName, thresholdValue);
+        logger.info("Updated threshold for {} - {} metrics to {}", type, metricName, thresholdValue);
     }
 
     /**
@@ -118,7 +170,7 @@ public class MonitoringDefinitionService {
         metricsList.forEach(metric -> {
             String typeKey = metric.getType().getType(); // type (host, container)
             Map<String, Double> metricMap = resultMap.computeIfAbsent(typeKey, k -> new ConcurrentHashMap<>());
-            metricMap.put(metric.getMetricName(), metric.getThresholdValue());
+            metricMap.put(metric.getMetricName(), metric.getOverThresholdValue());
         });
 
         return resultMap;

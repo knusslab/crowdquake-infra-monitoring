@@ -34,14 +34,13 @@
 
 `consumer/src/main/resources/properties/envfile.properties` 파일에 아래 항목들을 반드시 정의해야 합니다.
 
-| 변수명                            | 설명                                                                       |
-|-----------------------------------|--------------------------------------------------------------------------|
-| `BOOTSTRAP_SERVER`                | Kafka 브로커 주소 (컨테이너 환경에서는 `kafka:<포트번호>`(ex. [kafka 클러스터 ip주소]:9094)로 고정) |
-| `KAFKA_TOPIC_HOST`                | host 메트릭 메시지용 Kafka 토픽 이름 (producer와 동일하게 설정)                            |
-| `KAFKA_TOPIC_CONTAINER`           | container 메트릭 메시지용 Kafka 토픽 이름 (producer와 동일하게 설정)                       |
-| `KAFKA_GROUP_ID_STORAGE_GROUP`    | 데이터 저장소용 그룹 ID (코드 사용자가 임의로 지정 가능)                                       |
-| `SOCKET_ALLOWED_ADDR`             | 소켓 통신을 허용할 주소 (ex: `http://localhost:3000`)                              |
-| `API_BASE_URL`                    | api 통신을 위한 base url (ex: `http://api-backend:8004`)                      |
+| 변수명                            | 설명                                                                  |
+|--------------------------------|---------------------------------------------------------------------|
+| `BOOTSTRAP_SERVER`             | Kafka 브로커 주소 (컨테이너 환경에서는 `kafka:<포트번호>`(ex. [kafka 클러스터 ip주소]:9094)로 고정) |
+| `KAFKA_TOPIC_NAME`             | 메트릭 메시지용 Kafka 토픽 이름 (producer와 동일하게 설정)                            |
+| `KAFKA_GROUP_ID_STORAGE_GROUP` | 데이터 저장소용 그룹 ID (코드 사용자가 임의로 지정 가능)                                  |
+| `SOCKET_ALLOWED_ADDR`          | 소켓 통신을 허용할 주소 (ex: `http://localhost:3000`)                         |
+| `API_BASE_URL`                 | api 통신을 위한 base url (ex: `http://api-backend:8004`)                 |
 
 > ⚠️ **Kafka 토픽 이름은 반드시 producer 모듈의 토픽과 일치시켜야 합니다.**
 > ⚠️ 모든 Kafka 토픽이 사전에 생성되어 있어야 하며, 그룹 ID 충돌이 없도록 관리해야 합니다.

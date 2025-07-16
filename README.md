@@ -10,7 +10,104 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 
 ---
 
-## 주요 특징
+## 📁 (중요) docker-compose 각 파일 설명 및 **사용 방법**
+
+- docker-compose.collector.yml  
+  **메트릭을 수집하려는 컴퓨터들의 도커에 설치해 실행시킵니다.**
+  - metrics-backend/data-collector (의존성 존재:metrics-backend/producer)
+
+- docker-compose.consumer.yml  
+  **kafka cluster에서 메트릭을 받아오는 컴퓨터의 도커에 설치해 실행시킵니다.**
+  - metrics-backend/consumer
+
+- docker-compose.backend.yml  
+  **consumer로 받아온 메트릭을 처리하는 컴퓨터의 도커에 설치해 실행시킵니다.**
+  - api-backend
+  - MySQL 데이터베이스
+
+---
+
+## ⚙️ 실행 전 준비사항
+
+- **Docker 설치**  
+  이 프로젝트는 Docker 환경에서 동작하므로, 먼저 Docker가 설치되어 있어야 합니다.  
+  👉 [Docker 설치 가이드](https://docs.docker.com/get-docker/)
+
+
+
+---
+
+
+## 🚀 실행 방법
+
+
+#### 1. 환경설정
+- 1-1. 폴더 최상위 루트에 .env파일을 만들어 환경설정을 해준다.
+  - 환경설정은 아래의 **💻 환경설정** 부분을 참고하세요!
+
+---
+#### 2. 해당 컴퓨터에 시스템을 올리기 전 이미지 파일 생성 단계
+-**2-1. ~ 2-4.의 단계는 해당 프로젝트 폴더의 최상위 루트에서 실행시킵니다.**
+
+- 2-1. 이미지 : isslab/im-api-backend 생성
+```bash
+docker build -t isslab/im-api-backend:latest -f api-backend/Dockerfile .
+```
+
+- 2-2. 이미지 : isslab/im-metrics-consumer 생성
+```bash
+docker build -t isslab/im-metrics-consumer:latest -f metrics-backend/consumer/Dockerfile .
+```
+
+- 2-3. 이미지 : isslab/im-data-collector 생성
+```bash
+docker build -t isslab/im-data-collector:latest -f metrics-backend/data-collector/Dockerfile .
+
+```
+
+---
+#### 3. 각 해당 컴퓨터에서 각 docker-compose 실행
+
+
+- 3-1. 백엔드 + DB 실행
+```bash
+docker-compose -f docker-compose.backend.yml up -d
+```
+
+- 3-2. consumer 실행
+```bash
+docker-compose -f docker-compose.consumer.yml up -d
+```
+
+- 3-3. collector 측 실행 (각 장비 or 서버컴 등에서)
+```bash
+docker-compose -f docker-compose.collector.yml up -d
+```
+
+
+- **순서대로 실행함을 !강력히! 권장합니다.**
+- **테스트를 위해 하나의 컴퓨터에 `docker-compose.collector.yml`, `docker-compose.consumer.yml`, `docker-compose.backend.yml`를 함께 실행시키는 것도 가능합니다.**
+
+
+---
+
+## 💻 환경설정
+- 💡 최상위 경로에 .env 파일이 없다면 **반드시** 새로 생성합니다.
+```bash
+TZ=Asia/Seoul   # 변경 가능
+DATABASE_ROOT_PASSWORD=<Root-Password>(임의로 설정)
+DATABASE_USERNAME=<Username>(임의로 설정)
+DATABASE_PASSWORD=<Password>(임의로 설정)
+CORS_ALLOWED_ORIGINS=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
+BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
+KAFKA_TOPIC_NAME=[kafka topic name]
+KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
+API_BASE_URL=http://api-backend:8004    # 필수
+```
+
+---
+
+## server-monitoring 주요 특징
 
 - **서버실의 각 서버 컴퓨터에 collector를 Docker로 설치**  
   호스트 및 모든 컨테이너의 메트릭(자원 사용량 등)을 자동 수집
@@ -96,109 +193,6 @@ Docker 환경에서 collector를 실행하면 서버 컴퓨터의 호스트 및 
 - **클라이언트-백엔드 브릿지**  
   프론트엔드와 metrics-backend 사이의 데이터 흐름을 관리하는 핵심 API 게이트웨이 역할 수행
 
-
----
-
-## 📁 (중요) docker-compose 각 파일 설명 및 **사용 방법**
-
-- docker-compose.collector.yml  
-  **메트릭을 수집하려는 컴퓨터들의 도커에 설치해 실행시킵니다.**
-    - metrics-backend/machine-data-collector
-    - metrics-backend/container-data-collector (의존성 존재:metrics-backend/producer)
-
-- docker-compose.consumer.yml  
-  **kafka cluster에서 메트릭을 받아오는 컴퓨터의 도커에 설치해 실행시킵니다.**
-    - metrics-backend/consumer
-
-- docker-compose.backend.yml  
-  **consumer로 받아온 메트릭을 처리하는 컴퓨터의 도커에 설치해 실행시킵니다.**
-  - api-backend
-  - MySQL 데이터베이스
-
----
-
-## ⚙️ 실행 전 준비사항
-
-- **Docker 설치**  
-  이 프로젝트는 Docker 환경에서 동작하므로, 먼저 Docker가 설치되어 있어야 합니다.  
-  👉 [Docker 설치 가이드](https://docs.docker.com/get-docker/)
-
-
-
----
-
-
-## 🚀 실행 방법
-
-
-#### 1. 환경설정
-- 1-1. 폴더 최상위 루트에 .env파일을 만들어 환경설정을 해준다.
-    - 환경설정은 아래의 **💻 환경설정** 부분을 참고하세요!
-
----
-#### 2. 해당 컴퓨터에 시스템을 올리기 전 이미지 파일 생성 단계
--**2-1. ~ 2-4.의 단계는 해당 프로젝트 폴더의 최상위 루트에서 실행시킵니다.**
-
-- 2-1. 이미지 : isslab/im-api-backend 생성
-```bash
-docker build -t isslab/im-api-backend:latest -f api-backend/Dockerfile .
-```
-
-- 2-2. 이미지 : isslab/im-metrics-consumer 생성
-```bash
-docker build -t isslab/im-metrics-consumer:latest -f metrics-backend/consumer/Dockerfile .
-```
-
-- 2-3. 이미지 : isslab/im-host-metrics-collector 생성
-```bash
-docker build -t isslab/im-host-metrics-collector:latest -f metrics-backend/machine-data-collector/Dockerfile .
-```
-
-- 2-4. 이미지 : isslab/im-container-metrics-collector 생성
-```bash
-docker build -t isslab/im-container-metrics-collector:latest -f metrics-backend/container-data-collector/Dockerfile .
-```
-
----
-#### 3. 각 해당 컴퓨터에서 각 docker-compose 실행 
-
-
-- 3-1. 백엔드 + DB 실행
-```bash
-docker-compose -f docker-compose.backend.yml up -d
-```
-
-- 3-2. consumer 실행
-```bash
-docker-compose -f docker-compose.consumer.yml up -d
-```
-
-- 3-3. collector 측 실행 (각 장비 or 서버컴 등에서)
-```bash
-docker-compose -f docker-compose.collector.yml up -d
-```
-
-
-- **순서대로 실행함을 !강력히! 권장합니다.**
-- **테스트를 위해 하나의 컴퓨터에 `docker-compose.collector.yml`, `docker-compose.consumer.yml`, `docker-compose.backend.yml`를 함께 실행시키는 것도 가능합니다.**
-
-
----
-
-## 💻 환경설정
-- 💡 최상위 경로에 .env 파일이 없다면 **반드시** 새로 생성합니다.
-```bash
-TZ=Asia/Seoul(변경 가능)
-DATABASE_ROOT_PASSWORD=<Root-Password>(임의로 설정)
-DATABASE_USERNAME=<Username>(임의로 설정)
-DATABASE_PASSWORD=<Password>(임의로 설정)
-CORS_ALLOWED_ORIGINS=<주소1>,<주소2>,... [CORS 허용 Origin 목록(콤마로 구분)]
-BOOTSTRAP_SERVER=[kafka 클러스터 ip주소:외부포트번호]
-KAFKA_TOPIC_HOST=[kafka topic name for host]
-KAFKA_TOPIC_CONTAINER=[kafka topic name for container]
-KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
-API_BASE_URL=http://api-backend:8004(필수)
-```
 
 ---
 

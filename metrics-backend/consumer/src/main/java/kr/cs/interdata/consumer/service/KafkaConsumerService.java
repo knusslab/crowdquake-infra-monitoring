@@ -27,7 +27,7 @@ public class KafkaConsumerService {
     }
 
     /**
-     * 	- Kafka - "host"로부터 배치 메시지를 수신하고 처리하는 메서드
+     * 	- Kafka - 배치 메시지를 수신하고 처리하는 메서드
      * 	type : BATCH
      * 	listener Type : BatchMessageListener
      * 	method parameter : onMessage(ConsumerRecords<K, V> data)
@@ -35,11 +35,11 @@ public class KafkaConsumerService {
      * @param records   지정 토픽에서 받아온 데이터 list
      */
     @KafkaListener(
-            topics = "${KAFKA_TOPIC_HOST}",
+            topics = "${KAFKA_TOPIC_NAME}",
             groupId = "${KAFKA_CONSUMER_GROUP_ID}",
             containerFactory = "customContainerFactory"
     )
-    public void batchListenerForHost(ConsumerRecords<String, String> records, Acknowledgment ack) {
+    public void batchListener(ConsumerRecords<String, String> records, Acknowledgment ack) {
 
         for (ConsumerRecord<String, String> record : records) {
             String json = record.value();
@@ -52,55 +52,14 @@ public class KafkaConsumerService {
                 // *******************************
                 metricService.sendThresholdViolation(json);
 
-                logger.info("Kafka Record(Host) 처리 성공: {}", metricsNode.get("hostId").asText());
+                logger.info("Kafka Record 처리 성공: {}", metricsNode);
 
             } catch (InvalidJsonException e) {
-                logger.error("Host - 잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
+                logger.error("잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
             } catch (IllegalArgumentException e) {
-                logger.warn("Host - JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
+                logger.warn("JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
             } catch (Exception e) {
-                logger.error("Host - 예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
-            }
-        }
-        // 수동 커밋
-        ack.acknowledge();
-    }
-
-    /**
-     * 	- Kafka - "container"로부터 배치 메시지를 수신하고 처리하는 메서드
-     * 	type : BATCH
-     * 	listener Type : BatchMessageListener
-     * 	method parameter : onMessage(ConsumerRecords<K, V> data)
-     *
-     * @param records   지정 토픽에서 받아온 데이터 list
-     */
-    @KafkaListener(
-            topics = "${KAFKA_TOPIC_CONTAINER}",
-            groupId = "${KAFKA_CONSUMER_GROUP_ID}",
-            containerFactory = "customContainerFactory"
-    )
-    public void batchListenerForContainer(ConsumerRecords<String, String> records, Acknowledgment ack) {
-        //List<Mono<Void>> asyncTasks = new ArrayList<>(); // 비동기 작업을 저장할 리스트
-
-        for (ConsumerRecord<String, String> record : records) {
-            String json = record.value();
-
-            try {
-                JsonNode metricsNode = parseJson(json);
-
-                // *******************************
-                //     transmit to API-server
-                // *******************************
-                metricService.sendThresholdViolation(json);
-
-                logger.info("Kafka Record(Container) 처리 성공: {}", record);
-
-            } catch (InvalidJsonException e) {
-                logger.error("Container - 잘못된 JSON 형식 - key: {}, value: {}, error: {}", record.key(), record.value(), e.getMessage());
-            } catch (IllegalArgumentException e) {
-                logger.warn("Container - JSON 필드 누락 - key: {}, value: {}, 원인: {}", record.key(), record.value(), e.getMessage());
-            } catch (Exception e) {
-                logger.error("Container - 예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
+                logger.error("예상치 못한 예외 발생 - key: {}, value: {}", record.key(), record.value(), e);
             }
         }
         // 수동 커밋

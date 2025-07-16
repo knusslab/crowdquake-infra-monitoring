@@ -1,4 +1,0 @@
-db/mysql/data
-db/mysql/data/*
-db/mysql/data/mysql.sock
-*.sock

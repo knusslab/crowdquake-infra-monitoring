@@ -1,6 +1,7 @@
 package kr.cs.interdata.api_backend.infra.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,6 +15,7 @@ public class MetricWebsocketSender {
 
     // JSON 변환을 위한 ObjectMapper
     private static final Logger logger = LoggerFactory.getLogger(MetricWebsocketSender.class);
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final MetricWebsocketHandler metricWebsocketHandler;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -31,7 +33,6 @@ public class MetricWebsocketSender {
 
         executorService.submit(() -> {
             try {
-                ObjectMapper objectMapper = new ObjectMapper();
                 String jsonString = objectMapper.writeValueAsString(metricData);
                 metricWebsocketHandler.sendMetricMessage(jsonString);
             } catch (Exception e) {
@@ -40,5 +41,13 @@ public class MetricWebsocketSender {
         });
     }
 
+    /**
+     * 애플리케이션 종료 시 ExecutorService 정리
+     */
+    @PreDestroy
+    public void shutdownExecutor() {
+        executorService.shutdown();
+        logger.info("WebSocket sender executor service shut down.");
+    }
 
 }

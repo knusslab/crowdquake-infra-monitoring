@@ -14,6 +14,8 @@ import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.service.ThresholdService;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api")
 public class WebController {
@@ -34,7 +36,15 @@ public class WebController {
 
     @PostMapping("/metrics/threshold-setting")
     public ResponseEntity<?> setThreshold(@RequestBody ThresholdSetting dto) {
-        return ResponseEntity.ok(thresholdService.setThreshold(dto));
+        ThresholdErrorResponse errorResponse = thresholdService.setThreshold(dto);
+
+        if (errorResponse != null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(errorResponse);
+        }
+
+        return ResponseEntity.ok(Map.of("message", "ok"));
     }
 
     @GetMapping("/metrics/under-threshold-setting")
@@ -44,7 +54,15 @@ public class WebController {
 
     @PostMapping("/metrics/under-threshold-setting")
     public ResponseEntity<?> setUnderThreshold(@RequestBody ThresholdSetting dto) {
-        return ResponseEntity.ok(thresholdService.setUnderThreshold(dto));
+        ThresholdErrorResponse errorResponse = thresholdService.setUnderThreshold(dto);
+
+        if (errorResponse != null) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(errorResponse);
+        }
+
+        return ResponseEntity.ok(Map.of("message", "ok"));
     }
 
     @PostMapping("/metrics/threshold-history")

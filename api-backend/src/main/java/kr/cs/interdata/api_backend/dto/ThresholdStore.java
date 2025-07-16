@@ -2,6 +2,8 @@ package kr.cs.interdata.api_backend.dto;
 
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,6 +63,34 @@ public class ThresholdStore {
         return Optional.ofNullable(underThresholdMap.get(type))
                 .map(m -> m.get(metric))
                 .orElse(null);
+    }
+
+    public Map<String, Double> getOverThresholdValues() {
+        Map<String, Double> thresholds = new LinkedHashMap<>();
+
+        thresholds.put("cpuPercent", getOverThreshold("host", "cpu"));
+        thresholds.put("memoryUsage", getOverThreshold("host", "memory"));
+        thresholds.put("diskReadDelta", getOverThreshold("host", "diskReadDelta"));
+        thresholds.put("diskWriteDelta", getOverThreshold("host", "diskWriteDelta"));
+        thresholds.put("networkRx", getOverThreshold("host", "networkRx"));
+        thresholds.put("networkTx", getOverThreshold("host", "networkTx"));
+        thresholds.put("temperature", getOverThreshold("host", "temperature"));
+
+        return thresholds;
+    }
+
+    public Map<String, Double> getUnderThresholdValues() {
+        Map<String, Double> thresholds = new LinkedHashMap<>();
+
+        thresholds.put("cpuPercent", getUnderThreshold("host", "cpu"));
+        thresholds.put("memoryUsage", getUnderThreshold("host", "memory"));
+        thresholds.put("diskReadDelta", getUnderThreshold("host", "diskReadDelta"));
+        thresholds.put("diskWriteDelta", getUnderThreshold("host", "diskWriteDelta"));
+        thresholds.put("networkRx", getUnderThreshold("host", "networkRx"));
+        thresholds.put("networkTx", getUnderThreshold("host", "networkTx"));
+        thresholds.put("temperature", getUnderThreshold("host", "temperature"));
+
+        return thresholds;
     }
 
 }

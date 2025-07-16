@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.dto.abnormal_log_dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
@@ -476,6 +477,13 @@ public class ThresholdService {
             }
         }
     }
+
+    @PreDestroy
+    public void cleanUpAllEmitters() {
+        emitters.forEach((id, emitter) -> emitter.complete());
+        emitters.clear();
+    }
+
 
 
     /**

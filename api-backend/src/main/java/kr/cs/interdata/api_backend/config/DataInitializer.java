@@ -39,16 +39,16 @@ public class DataInitializer implements CommandLineRunner {
         insertMetricIfNotExists(hostType, "memory", "bytes", 20000000000.0, 0.0);
         insertMetricIfNotExists(hostType, "diskReadDelta", "bytes", 40000000.0, 0.0);
         insertMetricIfNotExists(hostType, "diskWriteDelta", "bytes", 40000000.0, 0.0);
-        insertMetricIfNotExists(hostType, "networkRx", "bytes", 300000.0, 50.0);
-        insertMetricIfNotExists(hostType, "networkTx", "bytes", 300000.0, 50.0);
+        insertMetricIfNotExists(hostType, "networkRx", "bytes", 300000.0, 0.0);
+        insertMetricIfNotExists(hostType, "networkTx", "bytes", 300000.0, 0.0);
         insertMetricIfNotExists(hostType, "temperature", "°C", 50.0, 5.0);
 
         insertMetricIfNotExists(containerType, "cpu", "%", 85.0, 0.0);
         insertMetricIfNotExists(containerType, "memory", "bytes", 20000000000.0, 0.0);
         insertMetricIfNotExists(containerType, "diskReadDelta", "bytes", 40000000.0, 0.0);
         insertMetricIfNotExists(containerType, "diskWriteDelta", "bytes", 40000000.0, 0.0);
-        insertMetricIfNotExists(containerType, "networkRx", "bytes", 300000.0, 50.0);
-        insertMetricIfNotExists(containerType, "networkTx", "bytes", 300000.0, 50.0);
+        insertMetricIfNotExists(containerType, "networkRx", "bytes", 300000.0, 0.0);
+        insertMetricIfNotExists(containerType, "networkTx", "bytes", 300000.0, 0.0);
 
         // 임계값 ThresholdStore에 저장 - over값
         thresholdStore.updateOverThreshold("host", "cpu", 85.0);
@@ -71,16 +71,16 @@ public class DataInitializer implements CommandLineRunner {
         thresholdStore.updateUnderThreshold("host", "memory", 0.0);
         thresholdStore.updateUnderThreshold("host", "diskReadDelta", 0.0);
         thresholdStore.updateUnderThreshold("host", "diskWriteDelta", 0.0);
-        thresholdStore.updateUnderThreshold("host", "networkRx", 50.0);
-        thresholdStore.updateUnderThreshold("host", "networkTx", 50.0);
+        thresholdStore.updateUnderThreshold("host", "networkRx", 0.0);
+        thresholdStore.updateUnderThreshold("host", "networkTx", 0.0);
         thresholdStore.updateUnderThreshold("host", "temperature", 5.0);
 
         thresholdStore.updateUnderThreshold("container", "cpu", 0.0);
         thresholdStore.updateUnderThreshold("container", "memory", 0.0);
         thresholdStore.updateUnderThreshold("container", "diskReadDelta", 0.0);
         thresholdStore.updateUnderThreshold("container", "diskWriteDelta", 0.0);
-        thresholdStore.updateUnderThreshold("container", "networkRx", 50.0);
-        thresholdStore.updateUnderThreshold("container", "networkTx", 50.0);
+        thresholdStore.updateUnderThreshold("container", "networkRx", 0.0);
+        thresholdStore.updateUnderThreshold("container", "networkTx", 0.0);
 
     }
 

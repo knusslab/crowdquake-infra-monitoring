@@ -1,6 +1,6 @@
 package kr.cs.interdata.api_backend.config;
 
-import kr.cs.interdata.api_backend.dto.ThresholdStore;
+import kr.cs.interdata.api_backend.infra.ThresholdStore;
 import kr.cs.interdata.api_backend.entity.MetricsByType;
 import kr.cs.interdata.api_backend.entity.TargetType;
 import kr.cs.interdata.api_backend.repository.MetricsByTypeRepository;

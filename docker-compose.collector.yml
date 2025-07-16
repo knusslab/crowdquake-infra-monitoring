@@ -9,10 +9,6 @@ services:
       - /sys:/host/sys:ro
       - /dev:/host/dev:ro
       - /etc/hostname:/host/etc/hostname:ro
-      - /sys/class/thermal:/host/sys/class/thermal:ro
-      - /sys/class/hwmon:/host/sys/class/hwmon:ro
-      - /proc/acpi/thermal_zone:/host/proc/acpi/thermal_zone:ro  # (구형 시스템 및 서버)
-
     environment:
       - BOOTSTRAP_SERVER=${BOOTSTRAP_SERVER}
       - KAFKA_TOPIC_NAME=${KAFKA_TOPIC_NAME}

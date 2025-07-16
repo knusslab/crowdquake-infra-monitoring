@@ -64,7 +64,7 @@ public class MonitoringDefinitionService {
         metrics.forEach(metric -> {
             switch (metric.getMetricName()) {
                 case "cpu":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setCpuPercent(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -72,7 +72,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "memory":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setMemoryUsage(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -80,7 +80,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "diskReadDelta":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setDiskReadDelta(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -88,7 +88,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "diskWriteDelta":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setDiskWriteDelta(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -96,7 +96,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "networkRx":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setNetworkRx(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -104,7 +104,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "networkTx":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setNetworkTx(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {
@@ -112,7 +112,7 @@ public class MonitoringDefinitionService {
                     }
                     break;
                 case "temperature":
-                    if (type.equals("underThresholdValue")) {
+                    if (type.equals("overThresholdValue")) {
                         thresholdSetting.setTemperature(String.valueOf(metric.getOverThresholdValue()));
                     }
                     else {

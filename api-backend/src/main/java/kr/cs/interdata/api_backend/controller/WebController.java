@@ -37,6 +37,16 @@ public class WebController {
         return ResponseEntity.ok(thresholdService.setThreshold(dto));
     }
 
+    @GetMapping("/metrics/under-threshold-setting")
+    public ResponseEntity<?> getUnderThreshold() {
+        return ResponseEntity.ok(thresholdService.getUnderThreshold());
+    }
+
+    @PostMapping("/metrics/under-threshold-setting")
+    public ResponseEntity<?> setUnderThreshold(@RequestBody ThresholdSetting dto) {
+        return ResponseEntity.ok(thresholdService.setUnderThreshold(dto));
+    }
+
     @PostMapping("/metrics/threshold-history")
     public ResponseEntity<?> getThresholdHistory(@RequestBody MachineIdforHistory targetId) {
         return ResponseEntity.ok(thresholdService.getThresholdHistoryforMachineId(targetId));

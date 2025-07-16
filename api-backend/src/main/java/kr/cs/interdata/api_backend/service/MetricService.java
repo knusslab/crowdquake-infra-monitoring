@@ -56,7 +56,7 @@ public class MetricService {
         // 3. 캐시 갱신: 호스트 + 모든 컨테이너
         metricMonitorService.updateTimestamps(metricsNode);
 
-        // 4. 임계값 초과 확인
+        // 4. 임계값 초과 및 미달 확인
         thresholdService.calcThreshold(metric);
 
         // 5. 로그 출력

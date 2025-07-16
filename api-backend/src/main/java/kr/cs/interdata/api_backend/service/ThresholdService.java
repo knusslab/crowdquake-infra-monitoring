@@ -56,7 +56,7 @@ public class ThresholdService {
          * "container"와 "host" 타입의 임계값은 같으므로
          * "host" 타입의 임계값을 조회해 가져온다.
          */
-        return monitoringDefinitionService.findThresholdByType("host");
+        return monitoringDefinitionService.findThresholdByType("overThresholdValue", "host");
     }
 
     /**
@@ -66,29 +66,69 @@ public class ThresholdService {
      */
     public Map<String, String> setThreshold(ThresholdSetting dto) {
         // 각 메트릭에 대한 임계값 업데이트
-        monitoringDefinitionService.updateThresholdByMetricName("cpu", Double.parseDouble(dto.getCpuPercent()));
-        monitoringDefinitionService.updateThresholdByMetricName("memory", Double.parseDouble(dto.getMemoryUsage()));
-        monitoringDefinitionService.updateThresholdByMetricName("diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
-        monitoringDefinitionService.updateThresholdByMetricName("diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
-        monitoringDefinitionService.updateThresholdByMetricName("networkRx", Double.parseDouble(dto.getNetworkRx()));
-        monitoringDefinitionService.updateThresholdByMetricName("networkTx", Double.parseDouble(dto.getNetworkTx()));
-        monitoringDefinitionService.updateThresholdByMetricName("temperature", Double.parseDouble(dto.getTemperature()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+        monitoringDefinitionService.updateThresholdByMetricName("overThresholdValue", "temperature", Double.parseDouble(dto.getTemperature()));
 
-        // 임계값 ThresholdStore에 저장
-        thresholdStore.updateThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
-        thresholdStore.updateThreshold("host", "memory", Double.parseDouble(dto.getMemoryUsage()));
-        thresholdStore.updateThreshold("host", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
-        thresholdStore.updateThreshold("host", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
-        thresholdStore.updateThreshold("host", "networkRx", Double.parseDouble(dto.getNetworkRx()));
-        thresholdStore.updateThreshold("host", "networkTx", Double.parseDouble(dto.getNetworkTx()));
-        thresholdStore.updateThreshold("host", "temperature", Double.parseDouble(dto.getTemperature()));
+        // 임계값 ThresholdStore에 저장 - over 값
+        thresholdStore.updateOverThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateOverThreshold("host", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateOverThreshold("host", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateOverThreshold("host", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateOverThreshold("host", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateOverThreshold("host", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+        thresholdStore.updateOverThreshold("host", "temperature", Double.parseDouble(dto.getTemperature()));
 
-        thresholdStore.updateThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
-        thresholdStore.updateThreshold("container", "memory", Double.parseDouble(dto.getMemoryUsage()));
-        thresholdStore.updateThreshold("container", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
-        thresholdStore.updateThreshold("container", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
-        thresholdStore.updateThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
-        thresholdStore.updateThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+        thresholdStore.updateOverThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateOverThreshold("container", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateOverThreshold("container", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateOverThreshold("container", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateOverThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateOverThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+
+        // 응답 생성
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "ok");
+        return response;
+    }
+
+    public ThresholdSetting getUnderThreshold() {
+        /*
+         * "container"와 "host" 타입의 임계값은 같으므로
+         * "host" 타입의 임계값을 조회해 가져온다.
+         */
+        return monitoringDefinitionService.findThresholdByType("underThresholdValue", "host");
+    }
+
+    public Map<String, String> setUnderThreshold(ThresholdSetting dto) {
+        // 각 메트릭에 대한 임계값 업데이트
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+        monitoringDefinitionService.updateThresholdByMetricName("underThresholdValue", "temperature", Double.parseDouble(dto.getTemperature()));
+
+        // 임계값 ThresholdStore에 저장 - under 값
+        thresholdStore.updateUnderThreshold("host", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateUnderThreshold("host", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateUnderThreshold("host", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateUnderThreshold("host", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateUnderThreshold("host", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateUnderThreshold("host", "networkTx", Double.parseDouble(dto.getNetworkTx()));
+        thresholdStore.updateUnderThreshold("host", "temperature", Double.parseDouble(dto.getTemperature()));
+
+        thresholdStore.updateUnderThreshold("container", "cpu", Double.parseDouble(dto.getCpuPercent()));
+        thresholdStore.updateUnderThreshold("container", "memory", Double.parseDouble(dto.getMemoryUsage()));
+        thresholdStore.updateUnderThreshold("container", "diskReadDelta", Double.parseDouble(dto.getDiskReadDelta()));
+        thresholdStore.updateUnderThreshold("container", "diskWriteDelta", Double.parseDouble(dto.getDiskWriteDelta()));
+        thresholdStore.updateUnderThreshold("container", "networkRx", Double.parseDouble(dto.getNetworkRx()));
+        thresholdStore.updateUnderThreshold("container", "networkTx", Double.parseDouble(dto.getNetworkTx()));
 
         // 응답 생성
         Map<String, String> response = new HashMap<>();
@@ -163,7 +203,7 @@ public class ThresholdService {
     }
 
     /*
-     *  5-1. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
+     *  5-1-1. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
      *
      * @param dto
      *        - type            : 이상 로그 발생 머신의 type
@@ -173,7 +213,7 @@ public class ThresholdService {
      *        - value           : 임계값을 넘은 값
      *        - timestamp       : 임계값을 넘은 시각
      */
-     public void storeThresholdExceededLog(StoreThresholdExceeded dto) {
+     public void storeThresholdExceededLog(StoreThresholdViolated dto) {
         String machineId = dto.getMachineId();
         String type = dto.getType();
         String machineName = dto.getMachineName();
@@ -203,6 +243,50 @@ public class ThresholdService {
 
         // 실시간 전송 (비동기 처리)
         CompletableFuture.runAsync(() -> publishThresholdExceeded(alert));
+
+    }
+
+    /*
+     *  5-1-2. threshold에 미달된 값이 생길 시 이를 처리하는 메서드
+     *
+     * @param dto
+     *        - type            : 이상 로그 발생 머신의 type
+     *        - machineId       : 이상 로그 발생 머신의 ID
+     *        - machineName     : 이상 로그 발생 머신의 name
+     *        - metricName      : (임계미달)메트릭 이름
+     *        - value           : 임계값에 미달된 값
+     *        - timestamp       : 임계값에 미달된 시각
+     */
+    public void storeThresholdDeceededLog(StoreThresholdViolated dto) {
+        String machineId = dto.getMachineId();
+        String type = dto.getType();
+        String machineName = dto.getMachineName();
+        String metricName = dto.getMetricName();
+        String threshold = dto.getThreshold();
+        String value = dto.getValue();
+        LocalDateTime timestamp = dto.getTimestamp();
+
+        abnormalDetectionService.storeThresholdDeceeded(
+            type,
+            machineId,
+            machineName,
+            metricName,
+            threshold,
+            value,
+            timestamp
+        );
+
+        // 실시간 전송 준비
+        AlertThresholdDeceeded alert = new AlertThresholdDeceeded();
+        alert.setMachineId(machineId);
+        alert.setMachineName(machineName);
+        alert.setMetricName(metricName);
+        alert.setValue(value);
+        alert.setThreshold(threshold);
+        alert.setTimestamp(timestamp);
+
+        // 실시간 전송 (비동기 처리)
+        CompletableFuture.runAsync(() -> publishThresholdDeceeded(alert));
 
     }
 
@@ -335,8 +419,35 @@ public class ThresholdService {
     }
 
     /**
+     *  6-2-2. 임계값에 미달된 데이터가 발생하면 실시간으로 전송한다.
+     *      -> 이상값이 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
-     * 6-2-2. container가 꺼졌다 판단되면 실시간으로 전송한다.
+     * @param alert     실시간 전송할 임계치에 미달된 데이터
+     */
+    public void publishThresholdDeceeded(AlertThresholdDeceeded alert) {
+        String jsonData;
+        try {
+            jsonData = objectMapper.writeValueAsString(alert);
+        } catch (IOException e) {
+            // 변환에 실패하면 로깅만 하고 기본 메시지 설정
+            logger.error("Failed to convert AlertThresholdDeceeded to JSON. Sending default error message.", e);
+            jsonData = "{\"error\": \"Failed to convert AlertThresholdDeceeded to JSON\"}";
+        }
+
+        // 모든 Emitter에 브로드캐스트 전송
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(jsonData);
+            } catch (IOException e) {
+                logger.warn("Failed to send data to client. Removing emitter: {}", entry.getKey());
+                entry.getValue().completeWithError(e);
+                emitters.remove(entry.getKey());
+            }
+        }
+    }
+
+    /**
+     * 6-2-3. container가 꺼졌다 판단되면 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert  실시간 전송할 데이터
@@ -366,7 +477,7 @@ public class ThresholdService {
 
     /**
      *
-     * 6-2-3. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 실시간으로 전송한다.
+     * 6-2-4. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert 실시간 전송할 데이터
@@ -395,7 +506,7 @@ public class ThresholdService {
     }
 
     /**
-     * 6-2-4. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 실시간으로 전송한다.
+     * 6-2-5. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert 실시간 전송할 데이터
@@ -606,7 +717,7 @@ public class ThresholdService {
     }
 
     /**
-     * 주어진 메트릭 값이 임계값(threshold)을 초과했는지 판단하고,
+     * 주어진 메트릭 값이 임계값(threshold)을 초과 및 미달했는지 판단하고,
      * 초과 시 로그 출력 및 위반 기록을 저장합니다.
      *
      * @param type           대상 종류 (예: host, container 등)
@@ -614,46 +725,65 @@ public class ThresholdService {
      * @param metricName     메트릭 이름 (예: cpuUsagePercent 등)
      * @param value          현재 측정된 메트릭 값
      * @param violationTime  측정 시각 또는 위반 발생 시각
-     * @return true  - 임계값 미초과 또는 임계값이 없음<br>
-     *         false - 임계값 초과 (위반 저장됨)
+     * @return true  - 임계값 미초과 또는 미미달 또는 임계값이 없음<br>
+     *         false - 임계값 초과 및 미달 (위반 저장됨)
      */
     public boolean evaluateThresholdAndLogViolation(String type, String machineId, String machineName,
                                     String metricName, Double value, LocalDateTime violationTime) {
         // thresholdStore에서 해당 메트릭의 임계값을 조회
-        Double threshold = thresholdStore.getThreshold(type, metricName);
+        Double overThreshold = thresholdStore.getOverThreshold(type, metricName);
+        Double underThreshold = thresholdStore.getUnderThreshold(type, metricName);
 
         // 1. 임계값이 존재하고, 메트릭이 임계값을 초과한 경우
-        if (threshold != null && value > threshold) {
+        if (overThreshold != null && value > overThreshold) {
             logger.warn("임계값 초과: {} | {} | {} -> {} = {} (임계값: {})"
-                    , type, machineId, machineName, metricName, value, threshold);
+                    , type, machineId, machineName, metricName, value, overThreshold);
 
             // 위반 정보 객체 생성 및 필드 설정
-            StoreThresholdExceeded storeThresholdExceeded = new StoreThresholdExceeded();
-            storeThresholdExceeded.setType(type);
-            storeThresholdExceeded.setMachineId(machineId);
-            storeThresholdExceeded.setMachineName(machineName);
-            storeThresholdExceeded.setMetricName(metricName);
-            storeThresholdExceeded.setValue(String.valueOf(value));
-            storeThresholdExceeded.setThreshold(String.valueOf(threshold));
-            storeThresholdExceeded.setTimestamp(violationTime);
+            StoreThresholdViolated storeThresholdViolated = new StoreThresholdViolated();
+            storeThresholdViolated.setType(type);
+            storeThresholdViolated.setMachineId(machineId);
+            storeThresholdViolated.setMachineName(machineName);
+            storeThresholdViolated.setMetricName(metricName);
+            storeThresholdViolated.setValue(String.valueOf(value));
+            storeThresholdViolated.setThreshold(String.valueOf(overThreshold));
+            storeThresholdViolated.setTimestamp(violationTime);
 
             // 위반 기록 저장
-            storeThresholdExceededLog(storeThresholdExceeded);
+            storeThresholdExceededLog(storeThresholdViolated);
 
             return false;
         }
+        // 2. 임계값 존재하고, 메트릭이 임계값에 미달된 경우
+        else if (underThreshold != null && (value < underThreshold)) {
+            logger.warn("임계값 미달: {} | {} | {} -> {} = {} (임계값: {})"
+                , type, machineId, machineName, metricName, value, underThreshold);
 
-        // 2. 임계값은 존재하지만, 메트릭이 초과하지 않은 경우
-        else if (threshold != null && (value < threshold || value.equals(threshold))) {
-            // 조건 충족하지 않음 → 아무 작업도 하지 않음
+            // 위반 정보 객체 생성 및 필드 설정
+            StoreThresholdViolated storeThresholdViolated = new StoreThresholdViolated();
+            storeThresholdViolated.setType(type);
+            storeThresholdViolated.setMachineId(machineId);
+            storeThresholdViolated.setMachineName(machineName);
+            storeThresholdViolated.setMetricName(metricName);
+            storeThresholdViolated.setValue(String.valueOf(value));
+            storeThresholdViolated.setThreshold(String.valueOf(underThreshold));
+            storeThresholdViolated.setTimestamp(violationTime);
+
+            // 위반 기록 저장
+            storeThresholdDeceededLog(storeThresholdViolated);
+
+            return false;
         }
-
-        // 3. 임계값 자체가 존재하지 않는 경우
+        // 3.
+        else if (overThreshold != null && underThreshold != null) {
+            // 임계값에 미달되거나 초과하지 않음 -> 아무것도 하지 않는 상태
+        }
+        // 4. 임계값 자체가 존재하지 않는 경우
         else {
             logger.warn("임계값이 조회되지 않았습니다.");
         }
 
-        // 임계값을 초과하지 않았거나, 임계값이 존재하지 않을 때 true 반환
+        // 임계값을 초과하지 않았거나, 임계값에 미달되지 않았거나, 임계값이 존재하지 않을 때 true 반환
         return true;
     }
 

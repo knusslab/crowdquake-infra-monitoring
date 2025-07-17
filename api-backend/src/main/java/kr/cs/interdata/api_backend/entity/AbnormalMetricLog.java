@@ -15,6 +15,10 @@ import lombok.Setter;
  *      2. machine-metric 구성의 동일 entity가 다른 시각에 이상이 생길 경우 "중복 저장" 가능하다.
  *
  *  - PK : number   // table에 들어온 순서대로의 누적 번호값
+ *  - 참고
+ *      - /dto/abnormal_log_dto/ 의 파일들을 참고해주세요. 해당 dto의 구성대로 이력이 저장됩니다.
+ *      - 각 파일들은 messateType별로 나누어져 있습니다.
+ *      - messageType별로 저장하지 않아도 되는 필드는 null 값을 저장합니다.
  */
 @Entity
 @Table(name = "AbnormalMetricLog")

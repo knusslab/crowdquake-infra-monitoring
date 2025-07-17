@@ -13,7 +13,8 @@ import java.util.List;
  *
  *  - PK : number // table에 들어온 순서대로의 누적 번호값
  *  - 테이블 관계 :
- *      TargetType (1) → (N) MonitoredMachineInventory
+ *      TargetType (1) → (N) HostMachineInventory
+ *      TargetType (1) → (N) ContainerInventory
  *      TargetType (1) → (N) MetricsByType
  */
 @Entity

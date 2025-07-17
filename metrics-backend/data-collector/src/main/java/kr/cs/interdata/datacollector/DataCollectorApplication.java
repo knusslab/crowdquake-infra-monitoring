@@ -107,8 +107,6 @@ class KafkaProducerRunner implements CommandLineRunner {
                         System.out.println("Kafka 전송 성공: " + metadata.topic() + " offset=" + metadata.offset());
                     }
                 });
-
-                Thread.sleep(1000);
             }
         }
     }

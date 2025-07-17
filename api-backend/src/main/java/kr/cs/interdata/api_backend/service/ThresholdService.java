@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.dto.abnormal_log_dto.*;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -29,8 +31,7 @@ public class ThresholdService {
     // 클라이언트의 Emitter를 저장할 ConcurrentHashMap
     private final Map<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final Map<String, Boolean> zeroStateCache = new ConcurrentHashMap<>();
-    private final Map<String, Double> overThresholdMap = new LinkedHashMap<>();
-    private final Map<String, Double> underThresholdMap = new LinkedHashMap<>();
+
     @Autowired
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Logger logger = LoggerFactory.getLogger(ThresholdService.class);
@@ -69,8 +70,7 @@ public class ThresholdService {
      * @return  ok 메세지를 보낸다.
      */
     public ThresholdErrorResponse setThreshold(ThresholdSetting dto) {
-        underThresholdMap.clear();
-        underThresholdMap.putAll(thresholdStore.getUnderThresholdValues());
+        Map<String, Double> underThresholdMap = new LinkedHashMap<>(thresholdStore.getUnderThresholdValues());
 
         Map<String, String> underThresholdStrMap = new LinkedHashMap<>();
         for (Map.Entry<String, Double> entry : underThresholdMap.entrySet()) {
@@ -140,8 +140,7 @@ public class ThresholdService {
     }
 
     public ThresholdErrorResponse setUnderThreshold(ThresholdSetting dto) {
-        overThresholdMap.clear();
-        overThresholdMap.putAll(thresholdStore.getOverThresholdValues());
+        Map<String, Double> overThresholdMap = new LinkedHashMap<>(thresholdStore.getOverThresholdValues());
 
         Map<String, String> overThresholdStrMap = new LinkedHashMap<>();
         for (Map.Entry<String, Double> entry : overThresholdMap.entrySet()) {
@@ -466,6 +465,25 @@ public class ThresholdService {
         logger.info("Client Connected: {}", emitterId);
         return emitter;
     }
+
+    @Scheduled(fixedRate = 5 * 60 * 1000) // 5분마다
+    public void cleanUpEmitters() {
+        for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            try {
+                entry.getValue().send(SseEmitter.event().name("ping").data("keepalive"));
+            } catch (Exception e) {
+                emitters.remove(entry.getKey());
+                logger.info("Cleaned up dead emitter: {}", entry.getKey());
+            }
+        }
+    }
+
+    @PreDestroy
+    public void cleanUpAllEmitters() {
+        emitters.forEach((id, emitter) -> emitter.complete());
+        emitters.clear();
+    }
+
 
 
     /**

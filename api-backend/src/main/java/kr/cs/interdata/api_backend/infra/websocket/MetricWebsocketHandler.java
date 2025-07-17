@@ -3,6 +3,7 @@ package kr.cs.interdata.api_backend.infra.websocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -24,6 +25,10 @@ public class MetricWebsocketHandler extends TextWebSocketHandler {
     public void afterConnectionEstablished(@NonNull WebSocketSession session)  {
         try {
             sessions.put(session.getId(), session);
+            // 세션 수 경고 로그
+            if (sessions.size() > 100) {
+                logger.warn("WebSocket session pool is too large: {}", sessions.size());
+            }
             logger.info("Client Connected: {}", session.getId());
         } catch (Exception e) {
             logger.error("Failed to establish connection for session: {}", session.getId(), e);
@@ -96,6 +101,21 @@ public class MetricWebsocketHandler extends TextWebSocketHandler {
                         }
                     }
                 }
+            }
+        });
+    }
+
+    @Scheduled(fixedRate = 5 * 60 * 1000) // 5분마다
+    public void cleanUpDeadSessions() {
+        sessions.forEach((id, session) -> {
+            try {
+                if (!session.isOpen()) {
+                    sessions.remove(id);
+                    logger.info("Cleaned up closed WebSocket session: {}", id);
+                }
+            } catch (Exception e) {
+                logger.error("Error while checking session status: {}", id, e);
+                sessions.remove(id);
             }
         });
     }

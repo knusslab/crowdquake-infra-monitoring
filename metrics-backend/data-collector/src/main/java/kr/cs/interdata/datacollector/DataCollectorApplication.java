@@ -23,6 +23,7 @@ import java.util.concurrent.*;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.stream.Collectors;
 
 @SpringBootApplication
 public class DataCollectorApplication {
@@ -174,6 +175,18 @@ class KafkaProducerRunner implements CommandLineRunner {
     private Map<String, Map<String, Object>> collectAllContainerResource() {
         List<Container> containers = dockerCollector.listAllContainers();
         Map<String, Map<String, Object>> containersMap = new ConcurrentHashMap<>();
+
+        //현재 살아있는 컨테이너 ID 목록 기록
+        Set<String> currentContainerIds = containers.stream()
+                .map(Container::getId)
+                .collect(Collectors.toSet());
+
+        // 이전 상태 Map에서 더 이상 존재하지 않는 containerId 제거
+        prevContainerDiskRead.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerDiskWrite.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerNet.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerTotalUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerSystemUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
 
         List<Future<?>> futures = new ArrayList<>();
         for (Container container : containers) {

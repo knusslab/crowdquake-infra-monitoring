@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Configuration
 public class WebClientConfig {
 
+    // docker-compose에서 주입받은 환경 변수에서 API_BASE_URL 값을 주입받음
     @Value("${API_BASE_URL}")
     private String baseUrl;
 

@@ -70,20 +70,12 @@ class KafkaProducerRunner implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        Properties props = new Properties();
-        props.put("bootstrap.servers", kafkaBootstrapServer);
-        props.put("acks", "all");
-        props.put("retries", 0);
-        props.put("batch.size", 16384);
-        props.put("linger.ms", 1);
-        props.put("buffer.memory", 33554432);
-        props.put("key.serializer", StringSerializer.class.getName());
-        props.put("value.serializer", StringSerializer.class.getName());
-
-        String topic = kafkaTopic;
-
+        //run 메서드는 애플리케이션 시작 시 실행되며, Kafka 프로듀서를 통해 주기적으로 리소스 데이터를 수집 및 전송함.
+        Properties props = buildKafkaProperties();
+        // JSON 출력 시 보기 좋게 들여쓰기를 활성화한 ObjectMapper 생성
         ObjectMapper prettyMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
 
+        // Kafka 프로듀서 생성 및 try-with-resources를 통해 자동 자원 해제 처리
         try (Producer<String, String> producer = new KafkaProducer<>(props)) {
             while (true) {
                 // 1. 호스트 정보 수집 및 delta 계산
@@ -95,21 +87,59 @@ class KafkaProducerRunner implements CommandLineRunner {
                 // 3. 통합 JSON 조립
                 hostData.put("containers", containersData);
 
-                // 4. Kafka로 전송
+                // 4. JSON 문자열로 변환 (pretty print) 후 콘솔에 출력
                 String prettyJson = prettyMapper.writeValueAsString(hostData);
                 System.out.println(prettyJson);
 
-                ProducerRecord<String, String> record = new ProducerRecord<>(topic, prettyJson);
-                producer.send(record, (metadata, exception) -> {
-                    if (exception != null) {
-                        System.err.println("Kafka 전송 실패: " + exception.getMessage());
-                    } else {
-                        System.out.println("Kafka 전송 성공: " + metadata.topic() + " offset=" + metadata.offset());
-                    }
-                });
+                //카프카에 메시지 전송
+                sendKafkaRecord(producer, kafkaTopic, prettyJson);
+
+
             }
         }
     }
+
+    //카프카 설정을 구성하여 properties 객체로 변환
+    private Properties buildKafkaProperties() {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", kafkaBootstrapServer);//카프카 브로커 주소
+        props.put("acks", "all");//모든 리더가 응답할 때까지 기다림
+        props.put("retries", 0);//전송 실패 시 재시도 횟수
+
+        //16384인 이유: 16KB임.
+        // 카프카 프로듀서는 레코드를 보낼 때 한번에 여러 메시지를 묶어서 보내는데, 이때 묶을 수 있는 최대 크기가 이 설정임
+        //기본값도 16384로 되어 있음.
+        props.put("batch.size", 16384);//배치 크기 설정(바이트 단위)
+
+        //카프카는 배치 전송을 위해 잠시 기다릴 수 있는데, 1ms는 거의 즉시 전송하겠다는 의미
+        //지연 줄이기 위해서 사용
+        props.put("linger.ms", 1);//배치 전송 전 대기 시간(1ms)
+
+        //32MB임
+        //프로듀서가 메시지를 전송하기 전에 클라이언트 메모리에 보관할 수 있는 총 메시지 크기임/
+        //기본값도 이 정도
+        //이보다 더 커지면 send()가 블로킹 되거나 예외가 발생할 수 있음.
+        props.put("buffer.memory", 33554432);//프로듀서 버터 메모리 크기
+        props.put("key.serializer", StringSerializer.class.getName());//메시지 키 직렬화 방식
+        props.put("value.serializer", StringSerializer.class.getName());//메시지 값 직렬화 방식
+        return props;
+    }
+
+    //카프카 메시지를 생성하고 전송, 결과를 콜백으로 처립
+    private void sendKafkaRecord(Producer<String, String> producer, String topic, String message) {
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic, message);
+
+        //비동기 전송 및 전송 결과 처리 콜백
+        producer.send(record, (metadata, exception) -> {
+            if (exception != null) {
+                System.err.println("Kafka 전송 실패: " + exception.getMessage());
+            } else {
+                System.out.println("Kafka 전송 성공: " + metadata.topic() + " offset=" + metadata.offset());
+            }
+        });
+    }
+
+
 
     // 호스트 리소스 수집 및 delta 계산
     private Map<String, Object> collectHostResource() {

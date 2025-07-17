@@ -27,14 +27,15 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // 먼저 host, container 타입 존재 여부 확인
+        // ===== 1. host, container 타입이 DB에 존재하는지 확인, 없으면 새로 저장 =====
         TargetType hostType = targetTypeRepository.findByType("host")
                 .orElseGet(() -> targetTypeRepository.save(TargetType.builder().type("host").build()));
 
         TargetType containerType = targetTypeRepository.findByType("container")
                 .orElseGet(() -> targetTypeRepository.save(TargetType.builder().type("container").build()));
 
-        // 이미 저장된 메트릭은 중복 방지
+        // ===== 2. 각 타입별 메트릭이 이미 저장되어 있는지 확인, 없으면 새로 insert (중복 방지) =====
+        // host type용 주요 메트릭 등록
         insertMetricIfNotExists(hostType, "cpu", "%", 85.0, 0.0);
         insertMetricIfNotExists(hostType, "memory", "bytes", 20000000000.0, 0.0);
         insertMetricIfNotExists(hostType, "diskReadDelta", "bytes", 40000000.0, 0.0);
@@ -43,6 +44,7 @@ public class DataInitializer implements CommandLineRunner {
         insertMetricIfNotExists(hostType, "networkTx", "bytes", 300000.0, 0.0);
         insertMetricIfNotExists(hostType, "temperature", "°C", 50.0, 5.0);
 
+        // container type용 주요 메트릭 등록
         insertMetricIfNotExists(containerType, "cpu", "%", 85.0, 0.0);
         insertMetricIfNotExists(containerType, "memory", "bytes", 20000000000.0, 0.0);
         insertMetricIfNotExists(containerType, "diskReadDelta", "bytes", 40000000.0, 0.0);
@@ -50,7 +52,8 @@ public class DataInitializer implements CommandLineRunner {
         insertMetricIfNotExists(containerType, "networkRx", "bytes", 300000.0, 0.0);
         insertMetricIfNotExists(containerType, "networkTx", "bytes", 300000.0, 0.0);
 
-        // 임계값 ThresholdStore에 저장 - over값
+        // ===== 3. 임계값(over) 등록: 각 메트릭별 한계값(초과 시 위험)을 ThresholdStore에 저장 =====
+        // host type - over threshold 값 등록
         thresholdStore.updateOverThreshold("host", "cpu", 85.0);
         thresholdStore.updateOverThreshold("host", "memory", 20000000000.0);
         thresholdStore.updateOverThreshold("host", "diskReadDelta", 40000000.0);
@@ -59,6 +62,7 @@ public class DataInitializer implements CommandLineRunner {
         thresholdStore.updateOverThreshold("host", "networkTx", 300000.0);
         thresholdStore.updateOverThreshold("host", "temperature", 50.0);
 
+        // container type - over threshold 값 등록
         thresholdStore.updateOverThreshold("container", "cpu", 85.0);
         thresholdStore.updateOverThreshold("container", "memory", 20000000000.0);
         thresholdStore.updateOverThreshold("container", "diskReadDelta", 40000000.0);
@@ -66,7 +70,8 @@ public class DataInitializer implements CommandLineRunner {
         thresholdStore.updateOverThreshold("container", "networkRx", 300000.0);
         thresholdStore.updateOverThreshold("container", "networkTx", 300000.0);
 
-        // 임계값 ThresholdStore에 저장 - under 값
+        // ===== 4. 임계값(under) 등록: 각 메트릭별 한계값(이하 시 위험)을 ThresholdStore에 저장 =====
+        // host type - under threshold 값 등록
         thresholdStore.updateUnderThreshold("host", "cpu", 0.0);
         thresholdStore.updateUnderThreshold("host", "memory", 0.0);
         thresholdStore.updateUnderThreshold("host", "diskReadDelta", 0.0);
@@ -75,6 +80,7 @@ public class DataInitializer implements CommandLineRunner {
         thresholdStore.updateUnderThreshold("host", "networkTx", 0.0);
         thresholdStore.updateUnderThreshold("host", "temperature", 5.0);
 
+        // container type - under threshold 값 등록
         thresholdStore.updateUnderThreshold("container", "cpu", 0.0);
         thresholdStore.updateUnderThreshold("container", "memory", 0.0);
         thresholdStore.updateUnderThreshold("container", "diskReadDelta", 0.0);

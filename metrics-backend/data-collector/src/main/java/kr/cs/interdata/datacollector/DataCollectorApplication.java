@@ -181,6 +181,13 @@ class KafkaProducerRunner implements CommandLineRunner {
                 .map(Container::getId)
                 .collect(Collectors.toSet());
 
+        // 이전 상태 Map에서 더 이상 존재하지 않는 containerId 제거
+        prevContainerDiskRead.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerDiskWrite.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerNet.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerTotalUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
+        prevContainerSystemUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
+
         List<Future<?>> futures = new ArrayList<>();
         for (Container container : containers) {
             futures.add(pool.submit(() -> {

@@ -16,7 +16,12 @@ public class MetricController {
         this.metricService = metricService;
     }
 
-    // consumer -> api-backend
+    /**
+     * 외부 consumer가 메트릭 데이터를 POST로 전달할 때 호출되는 API 엔드포인트입니다.
+     *
+     * @param metric JSON 등 문자열 형태의 메트릭 데이터
+     * @return 반환은 하지만 전달하지 않음 (별도의 본문 없음)
+     */
     @PostMapping("/metrics")
     public ResponseEntity<Void> sendMetrics(@RequestBody String metric) {
         metricService.sendMetric(metric);

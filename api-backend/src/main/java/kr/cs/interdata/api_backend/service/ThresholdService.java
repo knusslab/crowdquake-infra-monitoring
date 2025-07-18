@@ -12,8 +12,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.dto.abnormal_log_dto.*;
-import kr.cs.interdata.api_backend.dto.history_dto.HistoryFilter;
-import kr.cs.interdata.api_backend.dto.history_dto.HistoryForMachineId;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.infra.ThresholdStore;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
@@ -242,40 +240,12 @@ public class ThresholdService {
      * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
-    public List<Map<String, Object>> getThresholdHistoryforMachineId(HistoryForMachineId machineId) {
+    public List<Map<String, Object>> getThresholdHistoryforMachineId(MachineIdforHistory machineId) {
+
         // Service를 통해 DB 조회
         List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByMachineId(machineId.getTargetId());
 
         // 결과를 클라이언트에 맞게 매핑 및 반환
-        return getMapList(logs);
-    }
-
-    /**
-     *  - parameter로 abnormal log를 필터링하여 최대 50개까지의 로그를 조회한다.
-     * @param filter    필터링 데이터
-     * @return  필터링한 최대 50개의 로그들
-     */
-    public List<Map<String, Object>> getThresholdHistory(HistoryFilter filter) {
-        Map<String, String> paramMap = new LinkedHashMap<>();
-        paramMap.put("data", filter.getDate());
-        paramMap.put("machineType", filter.getMachineType());
-        paramMap.put("hostName", filter.getHostName());
-        paramMap.put("machineName", filter.getMachineName());
-        paramMap.put("messageType", filter.getMessageType());
-        paramMap.put("metricName", filter.getMetricName());
-
-        Optional<Map.Entry<String, String>> nonNullParam = paramMap.entrySet()
-                .stream()
-                .filter(e -> e.getValue() != null)
-                .findFirst();
-
-        if (nonNullParam.isEmpty()) return Collections.emptyList();
-
-        String type = nonNullParam.get().getKey();
-        String data = nonNullParam.get().getValue();
-
-        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalLogs(type, data);
-
         return getMapList(logs);
     }
 

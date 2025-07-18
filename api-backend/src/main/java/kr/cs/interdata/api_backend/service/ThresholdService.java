@@ -52,9 +52,13 @@ public class ThresholdService {
         this.containerInventoryService = containerInventoryService;
     }
 
+    // ==============================
+    // 1. Threshold Setting: Get & Set (Over/Under)
+    // ==============================
+
     /**
-     *  1. 현재 설정된 임계값을 조회
-     * @return  각 메트릭의 임계값을 담은 데이터를 리턴한다.
+     * - 현재 설정된 over-threshold(임계 초과) 값을 조회
+     * @return 각 메트릭의 over-threshold 값을 포함한 ThresholdSetting 객체
      */
     public ThresholdSetting getThreshold() {
         /*
@@ -65,9 +69,9 @@ public class ThresholdService {
     }
 
     /**
-     *  2. 새로운 임계값을 설정
-     * @param dto   각 메트릭의 threshold값
-     * @return  ok 메세지를 보낸다.
+     *  - 새로운 over-threshold(임계 초과) 값을 설정
+     * @param dto   각 메트릭의 over-threshold 값이 담긴 DTO
+     * @return  오류가 있으면 ThresholdErrorResponse 객체, 없으면 null
      */
     public ThresholdErrorResponse setThreshold(ThresholdSetting dto) {
         Map<String, Double> underThresholdMap = new LinkedHashMap<>(thresholdStore.getUnderThresholdValues());
@@ -131,6 +135,10 @@ public class ThresholdService {
         return null;
     }
 
+    /**
+     * - 현재 설정된 under-threshold(임계 미달) 값을 조회
+     * @return 각 메트릭의 under-threshold 값을 포함한 ThresholdSetting 객체
+     */
     public ThresholdSetting getUnderThreshold() {
         /*
          * "container"와 "host" 타입의 임계값은 같으므로
@@ -139,6 +147,11 @@ public class ThresholdService {
         return monitoringDefinitionService.findThresholdByType("underThresholdValue", "host");
     }
 
+    /**
+     * - 새로운 under-threshold(임계 미달) 값을 설정
+     * @param dto 각 메트릭의 under-threshold 값이 담긴 DTO
+     * @return 오류가 있으면 ThresholdErrorResponse 객체, 없으면 null
+     */
     public ThresholdErrorResponse setUnderThreshold(ThresholdSetting dto) {
         Map<String, Double> overThresholdMap = new LinkedHashMap<>(thresholdStore.getOverThresholdValues());
 
@@ -201,6 +214,11 @@ public class ThresholdService {
         return null;
     }
 
+    /**
+     * 임계값 상하관계 위반 시 반환할 에러 메시지 생성
+     * @param type "underThresholdValue" 또는 "overThresholdValue"
+     * @return 에러 메시지 문자열
+     */
     private String errorMessage(String type) {
         if (type.equals("underThresholdValue")) {
             return "A value below the threshold cannot be greater than a value above the threshold.";
@@ -213,8 +231,12 @@ public class ThresholdService {
         }
     }
 
+    // ==============================
+    // 2. Abnormal Log History Retrieval
+    // ==============================
+
     /**
-     *  3. 특정 machine Id의 이상 로그 이력 조회
+     *  - 특정 machine Id의 이상 로그 이력 조회
      * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
@@ -223,23 +245,12 @@ public class ThresholdService {
         // Service를 통해 DB 조회
         List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByMachineId(machineId.getTargetId());
 
-        // 결과를 클라이언트에 맞게 매핑
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (AbnormalMetricLog log : logs) {
-            Map<String, Object> record = new HashMap<>();
-            record.put("timestamp", log.getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss")));
-            record.put("targetId", log.getMachineId());
-            record.put("metricName", log.getMetricName());
-            record.put("threshold", log.getThreshold());
-            record.put("value", log.getValue());
-            result.add(record);
-        }
-
-        return result;
+        // 결과를 클라이언트에 맞게 매핑 및 반환
+        return getMapList(logs);
     }
 
     /**
-     *  4. 모든 머신의 이상 로그 이력 조회
+     *  - 모든 머신의 이상 로그 이력 조회
      *
      * @return  이력 리스트 (최신 기준으로 최대 50개)
      */
@@ -247,7 +258,22 @@ public class ThresholdService {
         // Service를 통해 DB 조회
         List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetrics();
 
-        // 결과를 클라이언트에 맞게 매핑
+        // 결과를 클라이언트에 맞게 매핑 및 반환
+        return getMapList(logs);
+    }
+
+    /**
+     * AbnormalMetricLog 리스트를 클라이언트에 반환할 Map 리스트 형식으로 변환한다.
+     * <p>
+     * 각 로그의 정보를 Map으로 변환하며,
+     * 만약 machineType이 "container"인 경우 containerInventoryService를 통해 해당 컨테이너의 hostName을 추가한다.
+     * 기타 정보(timestamp, messageType, machineType, machineId, machineName, metricName, threshold, value)도 포함된다.
+     * </p>
+     *
+     * @param logs AbnormalMetricLog 객체 리스트
+     * @return 각 로그를 Map<String, Object>로 변환한 리스트
+     */
+    private List<Map<String, Object>> getMapList(List<AbnormalMetricLog> logs) {
         List<Map<String, Object>> result = new ArrayList<>();
         for (AbnormalMetricLog log : logs) {
             Map<String, Object> record = new HashMap<>();
@@ -275,12 +301,16 @@ public class ThresholdService {
 
             result.add(record);
         }
-
         return result;
     }
 
+    // ==============================
+    // 3. Store Abnormal Events (Threshold Violation/Change/Timeout)
+    // ==============================
+
+    // ------- 3-1. Over/Under Threshold Events -------
     /*
-     *  5-1-1. threshold를 넘은 값이 생길 시 이를 처리하는 메서드
+     *  - threshold를 넘은 값이 생길 시 이를 처리하는 메서드
      *
      * @param dto
      *        - type            : 이상 로그 발생 머신의 type
@@ -324,7 +354,7 @@ public class ThresholdService {
     }
 
     /*
-     *  5-1-2. threshold에 미달된 값이 생길 시 이를 처리하는 메서드
+     *  - threshold에 미달된 값이 생길 시 이를 처리하는 메서드
      *
      * @param dto
      *        - type            : 이상 로그 발생 머신의 type
@@ -367,8 +397,10 @@ public class ThresholdService {
 
     }
 
+
+    // ------- 3-2. Special Events -------
     /**
-     *  5-2. container가 꺼졌다 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
+     *  - container가 꺼졌다 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
      *
      * @param type          이상 로그 발생 머신의 type
      * @param machineId     이상 로그 발생 머신의 ID
@@ -393,7 +425,7 @@ public class ThresholdService {
     }
 
     /**
-     *  5-3. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
+     *  - container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 이상로그를 발생시키고 이를 처리하는 메서드
      *
      * @param containerId       이상 로그 발생 머신의 ID
      * @param containerName     이상 로그 발생 머신의 name
@@ -418,7 +450,7 @@ public class ThresholdService {
     }
 
     /**
-     *  5-5. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 발생시키고 이를 처리하는 메서드
+     *  - 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 발생시키고 이를 처리하는 메서드
      *
      * @param type              이상 로그 발생 머신의 type
      * @param machineId         이상 로그 발생 머신의 ID
@@ -443,8 +475,14 @@ public class ThresholdService {
         CompletableFuture.runAsync(() -> publishTimeout(alertTimeout));
     }
 
+
+    // ==============================
+    // 4. SSE (Server-Sent Events) Real-time Alert Handling
+    // ==============================
+
+    // ------- 5-1. SSE Connection Management -------
     /**
-     *  6-1. sse방식을 사용하기 위해 비동기로 emitter를 연결한다.
+     *  - sse방식을 사용하기 위해 비동기로 emitter를 연결한다.
      *  -> SSE 연결을 생성하고 Emitter를 관리한다.
      *
      * @return emitter 연결
@@ -466,6 +504,10 @@ public class ThresholdService {
         return emitter;
     }
 
+    /**
+     * 일정한 주기로 SSE Emitter의 상태를 체크하여 끊어진 연결을 정리한다.
+     * (5분마다 실행)
+     */
     @Scheduled(fixedRate = 5 * 60 * 1000) // 5분마다
     public void cleanUpEmitters() {
         for (Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
@@ -478,6 +520,9 @@ public class ThresholdService {
         }
     }
 
+    /**
+     * 서비스 종료 시 모든 SSE Emitter 연결을 정리한다.
+     */
     @PreDestroy
     public void cleanUpAllEmitters() {
         emitters.forEach((id, emitter) -> emitter.complete());
@@ -485,9 +530,9 @@ public class ThresholdService {
     }
 
 
-
+    // ------- 5-2. Alert Broadcasting Methods -------
     /**
-     *  6-2-1. 임계값을 초과한 데이터가 발생하면 실시간으로 전송한다.
+     *  - 임계값을 초과한 데이터가 발생하면 실시간으로 전송한다.
      *      -> 이상값이 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert     실시간 전송할 임계치를 넘은 데이터
@@ -515,7 +560,7 @@ public class ThresholdService {
     }
 
     /**
-     *  6-2-2. 임계값에 미달된 데이터가 발생하면 실시간으로 전송한다.
+     *  - 임계값에 미달된 데이터가 발생하면 실시간으로 전송한다.
      *      -> 이상값이 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert     실시간 전송할 임계치에 미달된 데이터
@@ -543,7 +588,7 @@ public class ThresholdService {
     }
 
     /**
-     * 6-2-3. container가 꺼졌다 판단되면 실시간으로 전송한다.
+     *  - container가 꺼졌다 판단되면 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert  실시간 전송할 데이터
@@ -572,8 +617,7 @@ public class ThresholdService {
     }
 
     /**
-     *
-     * 6-2-4. container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 실시간으로 전송한다.
+     *  - container가 꺼졌다 켜진 후, containerId가 바뀌었다고 판단되면 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert 실시간 전송할 데이터
@@ -602,7 +646,7 @@ public class ThresholdService {
     }
 
     /**
-     * 6-2-5. 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 실시간으로 전송한다.
+     *  - 해당 데이터에 대해 1분이상 데이터가 조회되지 않을 시 이에 대한 이상 로그를 실시간으로 전송한다.
      *      -> 이상로그가 생길 시, 5번 메서드와 함께 데이터를 처리하며 실행된다.
      *
      * @param alert 실시간 전송할 데이터
@@ -631,10 +675,13 @@ public class ThresholdService {
     }
 
 
+    // ==============================
+    // 5. Metric Calculation and Evaluation
+    // ==============================
+
     /**
-     *  - threshold를 통해 메트릭의 각 값을 계산하는 메서드
-     *
-     * @param metric    모든 메트릭이 들어있는 데이터
+     * - 수집된 메트릭 데이터를 비동기로 파싱 및 임계값 평가 실행
+     * @param metric JSON 문자열 형식의 메트릭 데이터
      */
     @Async
     public void calcThreshold(String metric) {
@@ -677,7 +724,14 @@ public class ThresholdService {
         }
     }
 
-
+    /**
+     * 개별 장비 및 컨테이너의 주요 메트릭 값에 대해 임계값 비교 및 이상 판단 처리.
+     * @param type 타입("host" 또는 "container")
+     * @param machineId 장비 또는 컨테이너 ID
+     * @param machineName 장비 또는 컨테이너 이름
+     * @param violationTime 데이터 수집 시각
+     * @param metricsNode 분석할 메트릭 데이터(JSON Node)
+     */
     public void processMetricAnomaly(String type, String machineId, String machineName, LocalDateTime violationTime, JsonNode metricsNode) {
         double metricValue = 0.0;
         int zeroValueCnt = 0;
@@ -813,7 +867,7 @@ public class ThresholdService {
     }
 
     /**
-     * 주어진 메트릭 값이 임계값(threshold)을 초과 및 미달했는지 판단하고,
+     * - 주어진 메트릭 값이 임계값(threshold)을 초과 및 미달했는지 판단하고,
      * 초과 시 로그 출력 및 위반 기록을 저장합니다.
      *
      * @param type           대상 종류 (예: host, container 등)
@@ -883,8 +937,16 @@ public class ThresholdService {
         return true;
     }
 
+    // ==============================
+    // 6. JSON Parsing & Exception Handling
+    // ==============================
 
-    // json 파싱
+    /**
+     * JSON 문자열을 Jackson JsonNode로 파싱
+     * @param json 파싱할 JSON 문자열
+     * @return 파싱된 JsonNode
+     * @throws InvalidJsonException 파싱 실패 시
+     */
     private JsonNode parseJson(String json) {
         try {
             return objectMapper.readTree(json);
@@ -893,7 +955,9 @@ public class ThresholdService {
         }
     }
 
-    // 사용자 정의 예외
+    /**
+     * JSON 파싱 오류를 처리하기 위한 사용자 정의 예외 클래스
+     */
     public static class InvalidJsonException extends RuntimeException {
         public InvalidJsonException(String message, Throwable cause) {
             super(message, cause);

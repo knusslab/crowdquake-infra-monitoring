@@ -110,7 +110,7 @@ public class ContainerResourceMonitor {
     // 네트워크 인터페이스별 누적 수신/송신 바이트 수를 반환
     public static Map<String, Long[]> getNetworkStats() {
         Map<String, Long[]> networkStats = new HashMap<>();
-        String netDev = readFile("/proc/net/dev");
+        String netDev = readFile(PROC_NET_DEV);
         if (netDev == null) return networkStats;
         String[] lines = netDev.split("\n");
         //첫 2줄은 헤더여서 2번째 줄부터 파싱

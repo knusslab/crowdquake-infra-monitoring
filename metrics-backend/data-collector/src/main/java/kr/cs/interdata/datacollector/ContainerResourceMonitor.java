@@ -79,6 +79,9 @@ public class ContainerResourceMonitor {
     private static final String CG_CPU_STAT_V2 = "/sys/fs/cgroup/cpu.stat";
     private static final String CG_MEM_USAGE_V1 = "/sys/fs/cgroup/memory/memory.usage_in_bytes";
     private static final String CG_MEM_USAGE_V2 = "/sys/fs/cgroup/memory.current";
+    private static final String CG_BLKIO_V1 = "/sys/fs/cgroup/blkio/io_service_bytes_recursive";
+    private static final String CG_IO_STAT_V2 = "/sys/fs/cgroup/io.stat";
+
 
     //주어진 파일 경로의 텍스트를 읽어 반환
     public static String readFile(String path) {
@@ -171,9 +174,9 @@ public class ContainerResourceMonitor {
     public static long[] getDiskIO() {
         long diskReadBytes = 0;
         long diskWriteBytes = 0;
-        String blkioData = readFile("/sys/fs/cgroup/blkio/io_service_bytes_recursive");
+        String blkioData = readFile(CG_BLKIO_V1);
         if (blkioData == null) {
-            blkioData = readFile("/sys/fs/cgroup/io.stat");
+            blkioData = readFile(CG_IO_STAT_V2);
             if (blkioData != null) {
                 String[] lines = blkioData.split("\n");
                 for (String line : lines) {

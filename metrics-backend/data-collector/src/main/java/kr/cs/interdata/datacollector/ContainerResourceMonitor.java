@@ -7,6 +7,70 @@ import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/*
+ * ┌───────────── ContainerResourceMonitor에서 사용하는 시스템 파일/경로 정리 ───────────────┐
+ *
+ * [1] /sys/fs/cgroup/cpuacct/cpuacct.usage (cgroup v1)
+ *    - 컨테이너 혹은 프로세스 그룹이 누적해서 사용한 CPU 시간(ns, 나노초 단위)
+ *    - 파일 내용: 숫자 문자열 한 줄 (예: "18273645100000")
+ *    - 사용 방식: 값이 있으면 cgroup v1, 없으면 cgroup v2로 판단
+ *
+ * [2] /sys/fs/cgroup/cpu.stat (cgroup v2)
+ *    - CPU 사용량 및 통계 정보 (여러 줄로 구성)
+ *    - 예시:
+ *         usage_usec 47240196
+ *         user_usec  28380192
+ *         system_usec 18860004
+ *    - 주요 필드:
+ *        usage_usec: 전체 CPU 사용량(us, 마이크로초) → 1000을 곱해 ns로 변환
+ *        user_usec, system_usec: 각 모드별 CPU 시간
+ *
+ * [3] /sys/fs/cgroup/memory/memory.usage_in_bytes (cgroup v1)
+ *    - 현재 컨테이너의 메모리 사용량(실시간, 바이트 단위)
+ *    - 파일 내용: 숫자 하나 (예: "50421248")
+ *
+ * [4] /sys/fs/cgroup/memory.current (cgroup v2)
+ *    - 메모리 사용량 (단위: 바이트)
+ *    - 위 파일 없으면 이걸 읽음
+ *
+ * [5] /sys/fs/cgroup/blkio/io_service_bytes_recursive (cgroup v1)
+ *    - 각 블록 장치별 누적 디스크 I/O 정보
+ *    - 파일 예시:
+ *        8:0 Read 123456
+ *        8:0 Write 789012
+ *        8:0 Sync 876
+ *    - [8:0]은 디바이스 major:minor, [Read/Write]는 작업 종류, 마지막은 바이트 수
+ *    - 코드에선 Read/Write 합만 집계, Sync 등은 사용하지 않음
+ *
+ * [6] /sys/fs/cgroup/io.stat (cgroup v2)
+ *    - 디스크 I/O 통계 (블록 장치별 한 줄)
+ *      예: dev 8:0 rbytes=987654 wbytes=123456 rios=12 wios=34 ...
+ *    - rbytes: 누적 읽기 바이트, wbytes: 누적 쓰기 바이트 (코드는 이 두 값만 사용)
+ *    - rios, wios: I/O 요청 횟수 등 다른 통계 정보도 포함
+ *
+ * [7] /proc/net/dev
+ *    - 컨테이너에서 볼 수 있는 네트워크 인터페이스별 누적 트래픽 통계
+ *    - 헤더 2줄 + [iface명: 수신8개 송신8개]
+ *      예: eth0: 12345678 123 0 0 0 0 0 0 87654321 456 0 0 0 0 0 0
+ *      [0] 수신 바이트, [8] 송신 바이트
+ *      [1]/[9] 패킷, [2]/[10] 오류, [3]/[11] 드롭 등
+ *    - 코드에선 [0]수신, [8]송신 이 두 값만 직접 활용
+ *
+ * ※ cgroup v1/v2 상황에 따라 파일 위치와 필드/포맷이 달라 모두 지원하게 작성됨
+ * ※ 누적값이므로 변화량(증분, delta)은 외부 루프에서 계산해야 실제 사용량/속도 집계 가능
+ *
+ * ───────────────────────────────────────────────────────────────
+ * 확장/분석에 활용 가능한 추가 정보 (현 코드 미사용):
+ *  - /sys/fs/cgroup/cpuacct/cpuacct.stat, cpu.stat: user/system 시간 개별 집계
+ *  - /sys/fs/cgroup/memory/memory.limit_in_bytes: 메모리 제한 값
+ *  - /sys/fs/cgroup/blkio/io_serviced_recursive: I/O 횟수(건수)
+ *  - /proc/net/dev의 패킷, 에러(오류) 등 상세 네트워크 이벤트
+ *  - "/proc/self/cgroup" 등으로 현재 자신이 속한 cgroup 파악 가능
+ *
+ * └─────────────────────────────────────────────────────────────┘
+ */
+
+
 //컨테이너 내부에서 cgroup 파일을 직접 읽어 CPU, 메모리, 디스크, 네트워크 등 리소스 사용량을 수집하는 클래스
 public class ContainerResourceMonitor {
     private static final Logger logger = Logger.getLogger(ContainerResourceMonitor.class.getName());

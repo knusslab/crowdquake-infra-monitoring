@@ -48,6 +48,30 @@ public class MachineResourceMonitor {
         }
     }
 
+    /*
+     * /proc/stat 파일 구조 및 주요 컬럼 설명
+     *
+     * 예시:
+     * cpu  2253938 123 321445 55250596 14951 0 22609 0 0 0
+     *
+     * [컬럼 인덱스/의미]
+     *   [0] "cpu"         (항상 동일)
+     *   [1] user          (사용자 모드 누적 시간)
+     *   [2] nice          (낮은 우선순위(nice)에서 실행된 프로세스 CPU 시간)
+     *   [3] system        (커널 모드 CPU 시간)
+     *   [4] idle          (CPU 유휴 상태 시간)
+     *   [5] iowait        (I/O 대기 상태로 idle인 시간)
+     *   [6] irq           (하드웨어 인터럽트 처리 시간)
+     *   [7] softirq       (소프트웨어 인터럽트 처리 시간)
+     *   [8] steal         (가상화 등에서 다른 VM이 CPU 쓴 시간)
+     *   [9] guest         (게스트 OS에서 사용한 시간)
+     *   [10] guest_nice   (게스트 OS + nice)
+     * 단위: 1 jiffy (보통 0.01초)
+     *
+     * 일반적으로 user+nice+system+idle+iowait+irq+softirq+steal 까지만 더해 CPU 전체 시간(total) 계산에 사용.
+     * 본 코드에서는 idle, 그리고 total(user~steal의 합)만 사용 중.
+     */
+
     //proc/stats의 cpu 라인에서 idle/total 시간 누적값 읽음
     private long[] readCpuTimes() throws IOException {
         List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/stat"));
@@ -102,6 +126,18 @@ public class MachineResourceMonitor {
         Map<String, Double> tempMap = new LinkedHashMap<>();//센서 이름과 온도 값을 저장
 
         // 1. thermal_zone 방식
+
+        /*
+         * /sys/class/thermal/thermal_zone* 폴더 내부 구조
+         *
+         * - 각 디렉토리명: "thermal_zone0", "thermal_zone1", ...
+         *   안에 파일:
+         *     type   : 센서 타입(예: "x86_pkg_temp", "acpitz" 등, 센서 종류를 나타냄)
+         *     temp   : 현재 온도 (단위: millidegree Celsius. ex: 47000 == 47.0°C)
+         *
+         * temp 읽을 때 1000으로 나누어 °C 환산 필요
+         */
+
         try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/sys/class/thermal"), "thermal_zone*")) {
             for (Path zone : zones) {
                 String zoneName = zone.getFileName().toString();  // thermal_zone0
@@ -128,6 +164,20 @@ public class MachineResourceMonitor {
         } catch (Exception ignore) {}
 
         // 2. hwmon 방식
+
+        /*
+         * /sys/class/hwmon/hwmon* 폴더 내부 구조
+         *
+         * - 각 디렉토리명: hwmon0, hwmon1, ...
+         *   안에 파일:
+         *     name            : 디바이스 이름 (예: coretemp, nvme, ...)
+         *     tempN_input     : N번째 온도 값 (예: temp1_input, temp2_input, ...)
+         *     tempN_label     : tempN_input의 센서 레이블 (존재할 때만)
+         *
+         * 값을 읽으면 millidegree Celsius이므로 1000으로 나눠 °C 환산 필요
+         * ex) 43213 (-> 43.213°C)
+         */
+
         try (DirectoryStream<Path> hwmons = Files.newDirectoryStream(Paths.get("/host/sys/class/hwmon"))) {
             for (Path hwmon : hwmons) {
                 //센서 장치 이름
@@ -164,6 +214,14 @@ public class MachineResourceMonitor {
         } catch (Exception ignore) {}
 
         // 3. ACPI 구형 방식
+
+        /*
+         * /proc/acpi/thermal_zone/"*"/temperature
+                *  - (히스토리: 구형/일부 x86 시스템 등에서 사용)
+                *  - 파일 내용: 예) "temperature:             50 C"
+                *  - 정수값만 골라내 °C로 파싱
+                */
+
         try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/proc/acpi/thermal_zone"))) {
             for (Path zone : zones) {
                 String zoneName = zone.getFileName().toString();
@@ -189,6 +247,26 @@ public class MachineResourceMonitor {
     }
 
     //proc/meminfo에서 MemTotal, MemAvailable 값을 읽어 메모리 상태 계산
+
+    /*
+     * /proc/meminfo 파일 구조 및 주요 필드 설명
+     *
+     * 각 줄 예시: "키:   값  kB"
+     *
+     * 주요 필드:
+     *   - MemTotal:       전체 물리 메모리 크기 (단위: kB)
+     *   - MemFree:        사용 가능한 메모리 (단위: kB, 완전히 미사용 RAM)
+     *   - MemAvailable:   실제 OS가 프로세스에 할당 가능한 메모리 (단위: kB, 이게 중요!)
+     *   - Buffers:        RAM의 버퍼로 사용 중인 영역 (kB)
+     *   - Cached:         페이지 캐시·일반목적으로 캐시된 영역 (kB)
+     *   - SwapTotal:      전체 스왑 용량 (kB)
+     *   - SwapFree:       사용 가능한 스왑 (kB)
+     *
+     * 그 밖에도 다양한 상세 항목(DMA, 커밋, OS별 캐시 등)이 있음.
+     *
+     * 본 코드는 MemTotal, MemAvailable을 사용하여 전체/가용/사용 메모리(Byte 단위 변환)에 활용.
+     */
+
     public long getTotalMemoryBytes() {
 
         try {
@@ -225,6 +303,25 @@ public class MachineResourceMonitor {
     }
 
     // proc/mounts에서 마운트된 경로를 읽고, 각 파일시스템의 용량을 Files.getFileStore()로 조회
+
+    /*
+     * /proc/mounts 파일 구조 및 각 필드 의미
+     *
+     * 각 줄 예시:
+     * "/dev/sda1 / ext4 rw,relatime,data=ordered 0 0"
+     *
+     * split(" ")로 분리시:
+     *  [0] device     - 마운트된 블록 디바이스 (예: /dev/sda1)
+     *  [1] mountpoint - 마운트된 경로 (예: /)
+     *  [2] fstype     - 파일시스템 타입 (예: ext4, xfs, ...)
+     *  [3] options    - 마운트 옵션 (예: rw,relatime)
+     *  [4] dump       - 덤프 여부
+     *  [5] pass       - fsck 검사 우선순위
+     *
+     * 본 코드는 [1] mountpoint 만으로 각 파티션 공간/사용량 조회
+     * 활용하려면 디바이스 종류, 옵션 등도 확장 파싱 가능
+     */
+
     public long getTotalDiskBytes() {
         long total = 0;
         try {
@@ -271,6 +368,36 @@ public class MachineResourceMonitor {
 
     //proc/diskstats에서 각 디스크 장치의 읽기/쓰기 섹처 수를 읽어 바이트로 변환함
     //섹터 수*512= 바이트 수
+
+    /*
+     * /proc/diskstats 파일의 1줄 구조와 각 필드별 의미
+     *
+     * 예시:
+     * "8 0 sda 950 12 19425 970 1745 8 37324 1425 0 383 2395"
+     *
+     * split 기준 인덱스 및 필드:
+     *   [0]  major           - 메이저 번호 (장치 종류)
+     *   [1]  minor           - 마이너 번호 (장치 번호)
+     *   [2]  name            - 디스크 이름 (ex. sda)
+     *   [3]  reads_completed - 전체 읽기 완료 횟수
+     *   [4]  reads_merged    - 병합된 읽기 요청 횟수
+     *   [5]  sectors_read    - 읽은 섹터 수       <-- 코드에서 바이트 변환에 사용
+     *   [6]  ms_reading      - 읽기에 쓴 시간(ms)
+     *   [7]  writes_completed- 전체 쓰기 완료 횟수
+     *   [8]  writes_merged   - 병합된 쓰기 요청
+     *   [9]  sectors_written - 쓴 섹터 수         <-- 코드에서 바이트 변환에 사용
+     *   [10] ms_writing      - 쓰기에 쓴 시간(ms)
+     *   [11] ios_in_progress - 현재 진행중 I/O
+     *   [12] ms_doing_ios    - I/O 작업에 소요된 시간(ms)
+     *   [13] weighted_ms_ios - 작업 가중 시간(ms)
+     *
+     * 역할:
+     * - sectors_read/ sectors_written에 512를 곱해 누적 바이트 환산
+     * - reads_completed/writes_completed는 누적 I/O "횟수"
+     *
+     * 그 외의 필드는 advanced한 스토리지 분석에 활용 가능!
+     */
+
     public long getDiskReadBytes() {
         long totalReadBytes = 0;
         try {

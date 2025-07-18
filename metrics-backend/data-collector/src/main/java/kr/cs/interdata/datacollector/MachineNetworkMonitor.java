@@ -23,6 +23,8 @@ public class MachineNetworkMonitor {
             return result;
         }
 
+        //참고) 제일 밑에 /proc/net/dev 파일 구조와 각 필드가 의미하는 내용있습니다!
+
         // 첫 두 줄은 헤더이므로 건너뜀
         for (int i = 2; i < lines.size(); i++) {
             String line = lines.get(i).trim();
@@ -56,3 +58,35 @@ public class MachineNetworkMonitor {
         return result;
     }
 }
+
+/*
+ * ┌──────────────────────────────────── /proc/net/dev 구조 설명 ─────────────────────────────────────┐
+ *
+ *  # Sample (/proc/net/dev) file excerpt:
+ *  Inter-|   Receive                                                |  Transmit
+ *   face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed
+ *   eth0: 268524460 366503    0    0    0     0          0         0    25345645  348070    0    0    0     0      0          0
+ *     lo:   134526     140    0    0    0     0          0         0      134526     140    0    0    0     0      0          0
+ *
+ *  필드 별 인덱스 및 의미 (양쪽 공백/콜론 기준 split 후):
+ *   - 인덱스 0~7 : 수신(Receive) 통계
+ *        [0] bytes        : 누적 수신 바이트
+ *        [1] packets      : 누적 수신 패킷 수
+ *        [2] errs         : 수신 오류
+ *        [3] drop         : 수신 drop 패킷 수
+ *        [4] fifo         : 수신 fifo 에러
+ *        [5] frame        : 수신 frame 에러
+ *        [6] compressed   : 수신 압축 패킷 수
+ *        [7] multicast    : 수신 멀티캐스트 패킷 수
+ *   - 인덱스 8~15 : 송신(Transmit) 통계
+ *        [8] bytes        : 누적 송신 바이트
+ *        [9] packets      : 누적 송신 패킷 수
+ *       [10] errs         : 송신 오류
+ *       [11] drop         : 송신 drop 패킷 수
+ *       [12] fifo         : 송신 fifo 에러
+ *       [13] colls        : 송신 충돌(collision) 횟수
+ *       [14] carrier      : 캐리어 에러
+ *       [15] compressed   : 송신 압축 패킷 수
+ *
+ * └─────────────────────────────────────────────────────────────────────────────────────────────┘
+ */

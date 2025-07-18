@@ -77,6 +77,8 @@ public class ContainerResourceMonitor {
 
     private static final String CG_CPUACCT_USAGE_V1 = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
     private static final String CG_CPU_STAT_V2 = "/sys/fs/cgroup/cpu.stat";
+    private static final String CG_MEM_USAGE_V1 = "/sys/fs/cgroup/memory/memory.usage_in_bytes";
+    private static final String CG_MEM_USAGE_V2 = "/sys/fs/cgroup/memory.current";
 
     //주어진 파일 경로의 텍스트를 읽어 반환
     public static String readFile(String path) {
@@ -158,9 +160,9 @@ public class ContainerResourceMonitor {
 
     // 컨테이너의 현재 메모리 사용량(바이트)을 반환
     public static Long getMemoryUsage() {
-        Long memoryUsage = readLongFromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+        Long memoryUsage = readLongFromFile(CG_MEM_USAGE_V1);
         if (memoryUsage == null) {
-            memoryUsage = readLongFromFile("/sys/fs/cgroup/memory.current");
+            memoryUsage = readLongFromFile(CG_MEM_USAGE_V2);
         }
         return memoryUsage;
     }

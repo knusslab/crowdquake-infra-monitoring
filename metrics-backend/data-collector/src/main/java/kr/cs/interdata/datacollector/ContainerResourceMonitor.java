@@ -75,6 +75,15 @@ import java.util.logging.Logger;
 public class ContainerResourceMonitor {
     private static final Logger logger = Logger.getLogger(ContainerResourceMonitor.class.getName());
 
+    private static final String CG_CPUACCT_USAGE_V1 = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+    private static final String CG_CPU_STAT_V2 = "/sys/fs/cgroup/cpu.stat";
+    private static final String CG_MEM_USAGE_V1 = "/sys/fs/cgroup/memory/memory.usage_in_bytes";
+    private static final String CG_MEM_USAGE_V2 = "/sys/fs/cgroup/memory.current";
+    private static final String CG_BLKIO_V1 = "/sys/fs/cgroup/blkio/io_service_bytes_recursive";
+    private static final String CG_IO_STAT_V2 = "/sys/fs/cgroup/io.stat";
+    private static final String PROC_NET_DEV = "/proc/net/dev";
+
+
     //주어진 파일 경로의 텍스트를 읽어 반환
     public static String readFile(String path) {
         try {
@@ -101,7 +110,7 @@ public class ContainerResourceMonitor {
     // 네트워크 인터페이스별 누적 수신/송신 바이트 수를 반환
     public static Map<String, Long[]> getNetworkStats() {
         Map<String, Long[]> networkStats = new HashMap<>();
-        String netDev = readFile("/proc/net/dev");
+        String netDev = readFile(PROC_NET_DEV);
         if (netDev == null) return networkStats;
         String[] lines = netDev.split("\n");
         //첫 2줄은 헤더여서 2번째 줄부터 파싱
@@ -127,7 +136,7 @@ public class ContainerResourceMonitor {
     // CPU 누적 사용량(나노초) 반환 (cgroup v1/v2 모두 지원)
     public static Long getCpuUsageNano() {
         //누적 CPU 사용량을 반환
-        String v1Path = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+        String v1Path = CG_CPUACCT_USAGE_V1;
         if (Files.exists(Paths.get(v1Path))) {
             try {
                 String content = Files.readString(Paths.get(v1Path)).trim();
@@ -136,7 +145,7 @@ public class ContainerResourceMonitor {
                 logger.log(Level.WARNING, "Failed to read v1 cpuacct.usage", e);
             }
         } else {
-            String v2Path = "/sys/fs/cgroup/cpu.stat";
+            String v2Path = CG_CPU_STAT_V2;
             if (Files.exists(Paths.get(v2Path))) {
                 try {
                     for (String line : Files.readAllLines(Paths.get(v2Path))) {
@@ -155,9 +164,9 @@ public class ContainerResourceMonitor {
 
     // 컨테이너의 현재 메모리 사용량(바이트)을 반환
     public static Long getMemoryUsage() {
-        Long memoryUsage = readLongFromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
+        Long memoryUsage = readLongFromFile(CG_MEM_USAGE_V1);
         if (memoryUsage == null) {
-            memoryUsage = readLongFromFile("/sys/fs/cgroup/memory.current");
+            memoryUsage = readLongFromFile(CG_MEM_USAGE_V2);
         }
         return memoryUsage;
     }
@@ -166,9 +175,9 @@ public class ContainerResourceMonitor {
     public static long[] getDiskIO() {
         long diskReadBytes = 0;
         long diskWriteBytes = 0;
-        String blkioData = readFile("/sys/fs/cgroup/blkio/io_service_bytes_recursive");
+        String blkioData = readFile(CG_BLKIO_V1);
         if (blkioData == null) {
-            blkioData = readFile("/sys/fs/cgroup/io.stat");
+            blkioData = readFile(CG_IO_STAT_V2);
             if (blkioData != null) {
                 String[] lines = blkioData.split("\n");
                 for (String line : lines) {

@@ -81,6 +81,7 @@ public class ContainerResourceMonitor {
     private static final String CG_MEM_USAGE_V2 = "/sys/fs/cgroup/memory.current";
     private static final String CG_BLKIO_V1 = "/sys/fs/cgroup/blkio/io_service_bytes_recursive";
     private static final String CG_IO_STAT_V2 = "/sys/fs/cgroup/io.stat";
+    private static final String PROC_NET_DEV = "/proc/net/dev";
 
 
     //주어진 파일 경로의 텍스트를 읽어 반환
@@ -109,7 +110,7 @@ public class ContainerResourceMonitor {
     // 네트워크 인터페이스별 누적 수신/송신 바이트 수를 반환
     public static Map<String, Long[]> getNetworkStats() {
         Map<String, Long[]> networkStats = new HashMap<>();
-        String netDev = readFile("/proc/net/dev");
+        String netDev = readFile(PROC_NET_DEV);
         if (netDev == null) return networkStats;
         String[] lines = netDev.split("\n");
         //첫 2줄은 헤더여서 2번째 줄부터 파싱

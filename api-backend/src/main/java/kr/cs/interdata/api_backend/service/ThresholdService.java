@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.dto.abnormal_log_dto.*;
+import kr.cs.interdata.api_backend.dto.history_dto.HistoryForMachineId;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.infra.ThresholdStore;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
@@ -240,8 +241,7 @@ public class ThresholdService {
      * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
-    public List<Map<String, Object>> getThresholdHistoryforMachineId(MachineIdforHistory machineId) {
-
+    public List<Map<String, Object>> getThresholdHistoryforMachineId(HistoryForMachineId machineId) {
         // Service를 통해 DB 조회
         List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByMachineId(machineId.getTargetId());
 

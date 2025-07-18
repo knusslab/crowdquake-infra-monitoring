@@ -1,4 +1,4 @@
-package kr.cs.interdata.api_backend.dto;
+package kr.cs.interdata.api_backend.dto.history_dto;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -10,7 +10,7 @@ import lombok.Setter;
  */
 @Getter
 @Setter
-public class MachineIdforHistory {
+public class HistoryForMachineId {
 
     private String targetId;    // 임계 초과(혹은 변경) 로그 이력을 조회하고자 하는 대상의 식별자(ID)
 }

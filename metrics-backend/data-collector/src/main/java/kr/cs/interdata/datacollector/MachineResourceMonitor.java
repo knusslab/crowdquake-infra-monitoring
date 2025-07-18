@@ -15,24 +15,32 @@ import java.util.ArrayList;
 
 //리눅스 시스템의 자원 상태를 proc,sys 등의 시스템 파일을 통해 직접 읽어와서 JSON 형태로 반환
 public class MachineResourceMonitor {
-    private static final String HOST_ID_FILE = getDefaultHostIdPath(); //고유한 호스트 id를 저장하는 파일 경로
+    // 경로 상수 선언
+    private static final String LINUX_HOST_ID_PATH = "/tmp/host-unique-id.txt";
+    private static final String WINDOWS_HOST_ID_PATH = System.getProperty("java.io.tmpdir") + "host-unique-id.txt";
     private static final String PROC_PATH = "/host/proc"; // 호스트의 proc 디렉토리를 컨테이너 내에서 접근할 경로
+    private static final String PROC_STAT_PATH = PROC_PATH + "/stat";
+    private static final String PROC_MEMINFO_PATH = PROC_PATH + "/meminfo";
+    private static final String PROC_MOUNTS_PATH = PROC_PATH + "/mounts";
+    private static final String PROC_DISKSTATS_PATH = PROC_PATH + "/diskstats";
+    private static final String PROC_ACPI_THERMAL_ZONE_PATH = "/host/proc/acpi/thermal_zone";
+    private static final String SYS_THERMAL_PATH = "/host/sys/class/thermal";
+    private static final String SYS_HWMON_PATH = "/host/sys/class/hwmon";
+    //private static final String HOSTNAME_PATH = "/host/etc/hostname";
+    private static final String HOST_ID_FILE = getDefaultHostIdPath(); //고유한 호스트 id를 저장하는 파일 경로
 
     private long prevIdle = 0;
     private long prevTotal = 0;
 
-
-    private static final String SYS_THERMAL_PATH = "/host/sys/class/thermal";
-    private static final String SYS_HWMON_PATH = "/host/sys/class/hwmon";
 
     //운영체제별 호스트 ID 파일 경로 반환
     //윈도우 안쓰니까 리눅스만 해도 될 듯
     private static String getDefaultHostIdPath() {
         String osName = System.getProperty("os.name").toLowerCase();
         if (osName.contains("win")) {//윈도우
-            return System.getProperty("java.io.tmpdir") + "host-unique-id.txt";
+            return WINDOWS_HOST_ID_PATH;
         } else {//리눅스
-            return "/tmp/host-unique-id.txt";
+            return LINUX_HOST_ID_PATH;
         }
     }
 
@@ -74,7 +82,7 @@ public class MachineResourceMonitor {
 
     //proc/stats의 cpu 라인에서 idle/total 시간 누적값 읽음
     private long[] readCpuTimes() throws IOException {
-        List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/stat"));
+        List<String> lines = Files.readAllLines(Paths.get(PROC_STAT_PATH));
         for (String line : lines) {
             if (line.startsWith("cpu ")) {
                 String[] parts = line.trim().split("\\s+");
@@ -138,7 +146,7 @@ public class MachineResourceMonitor {
          * temp 읽을 때 1000으로 나누어 °C 환산 필요
          */
 
-        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/sys/class/thermal"), "thermal_zone*")) {
+        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get(SYS_THERMAL_PATH), "thermal_zone*")) {
             for (Path zone : zones) {
                 String zoneName = zone.getFileName().toString();  // thermal_zone0
 
@@ -178,7 +186,7 @@ public class MachineResourceMonitor {
          * ex) 43213 (-> 43.213°C)
          */
 
-        try (DirectoryStream<Path> hwmons = Files.newDirectoryStream(Paths.get("/host/sys/class/hwmon"))) {
+        try (DirectoryStream<Path> hwmons = Files.newDirectoryStream(Paths.get(SYS_HWMON_PATH))) {
             for (Path hwmon : hwmons) {
                 //센서 장치 이름
                 String name = "hwmon";
@@ -222,7 +230,7 @@ public class MachineResourceMonitor {
                 *  - 정수값만 골라내 °C로 파싱
                 */
 
-        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get("/host/proc/acpi/thermal_zone"))) {
+        try (DirectoryStream<Path> zones = Files.newDirectoryStream(Paths.get(PROC_ACPI_THERMAL_ZONE_PATH))) {
             for (Path zone : zones) {
                 String zoneName = zone.getFileName().toString();
                 Path tempFile = zone.resolve("temperature");
@@ -270,7 +278,7 @@ public class MachineResourceMonitor {
     public long getTotalMemoryBytes() {
 
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/meminfo"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_MEMINFO_PATH));
             for (String line : lines) {
                 if (line.startsWith("MemTotal:")) {
                     String[] parts = line.split("\\s+");
@@ -284,7 +292,7 @@ public class MachineResourceMonitor {
 
     public long getAvailableMemoryBytes() {
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/meminfo"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_MEMINFO_PATH));
             for (String line : lines) {
                 if (line.startsWith("MemAvailable:")) {
                     String[] parts = line.split("\\s+");
@@ -325,7 +333,7 @@ public class MachineResourceMonitor {
     public long getTotalDiskBytes() {
         long total = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/mounts"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_MOUNTS_PATH));
             for (String line : lines) {
                 String[] parts = line.split(" ");
                 if (parts.length > 1) {
@@ -345,7 +353,7 @@ public class MachineResourceMonitor {
     public long getFreeDiskBytes() {
         long free = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/mounts"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_MOUNTS_PATH));
             for (String line : lines) {
                 String[] parts = line.split(" ");
                 if (parts.length > 1) {
@@ -401,7 +409,7 @@ public class MachineResourceMonitor {
     public long getDiskReadBytes() {
         long totalReadBytes = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/diskstats"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_DISKSTATS_PATH));
             for (String line : lines) {
                 String[] parts = line.trim().split("\\s+");
                 if (parts.length >= 6) {
@@ -416,7 +424,7 @@ public class MachineResourceMonitor {
     public long getDiskWriteBytes() {
         long totalWriteBytes = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/diskstats"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_DISKSTATS_PATH));
             for (String line : lines) {
                 String[] parts = line.trim().split("\\s+");
                 if (parts.length >= 10) {
@@ -432,7 +440,7 @@ public class MachineResourceMonitor {
     public long getDiskReadCount() {
         long totalReads = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/diskstats"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_DISKSTATS_PATH));
             for (String line : lines) {
                 String[] parts = line.trim().split("\\s+");
                 if (parts.length >= 4) {
@@ -447,7 +455,7 @@ public class MachineResourceMonitor {
     public long getDiskWriteCount() {
         long totalWrites = 0;
         try {
-            List<String> lines = Files.readAllLines(Paths.get(PROC_PATH + "/diskstats"));
+            List<String> lines = Files.readAllLines(Paths.get(PROC_DISKSTATS_PATH));
             for (String line : lines) {
                 String[] parts = line.trim().split("\\s+");
                 if (parts.length >= 8) {

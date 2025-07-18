@@ -75,6 +75,9 @@ import java.util.logging.Logger;
 public class ContainerResourceMonitor {
     private static final Logger logger = Logger.getLogger(ContainerResourceMonitor.class.getName());
 
+    private static final String CG_CPUACCT_USAGE_V1 = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+    private static final String CG_CPU_STAT_V2 = "/sys/fs/cgroup/cpu.stat";
+
     //주어진 파일 경로의 텍스트를 읽어 반환
     public static String readFile(String path) {
         try {
@@ -127,7 +130,7 @@ public class ContainerResourceMonitor {
     // CPU 누적 사용량(나노초) 반환 (cgroup v1/v2 모두 지원)
     public static Long getCpuUsageNano() {
         //누적 CPU 사용량을 반환
-        String v1Path = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
+        String v1Path = CG_CPUACCT_USAGE_V1;
         if (Files.exists(Paths.get(v1Path))) {
             try {
                 String content = Files.readString(Paths.get(v1Path)).trim();
@@ -136,7 +139,7 @@ public class ContainerResourceMonitor {
                 logger.log(Level.WARNING, "Failed to read v1 cpuacct.usage", e);
             }
         } else {
-            String v2Path = "/sys/fs/cgroup/cpu.stat";
+            String v2Path = CG_CPU_STAT_V2;
             if (Files.exists(Paths.get(v2Path))) {
                 try {
                     for (String line : Files.readAllLines(Paths.get(v2Path))) {

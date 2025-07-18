@@ -335,6 +335,31 @@ class KafkaProducerRunner implements CommandLineRunner {
         boolean condTotalUsageInc       = condTotalUsageNotNull && totalUsage > prevTotal;
         boolean condCpuCountPositive    = condCpuCountNotNull && cpuCount > 0;
 
+        if (!condTotalUsageNotNull) {
+            // 누적 CPU 사용량(totalUsage)이 null인 경우
+            logger.debug("totalUsage is null for container: {}", containerId);
+        }
+        if (!condSystemUsageNotNull) {
+            // 시스템 전체 CPU 사용량(systemUsage)이 null인 경우
+            logger.debug("systemUsage is null for container: {}", containerId);
+        }
+        if (!condCpuCountNotNull) {
+            // CPU 코어 개수(cpuCount)가 null인 경우
+            logger.debug("cpuCount is null for container: {}", containerId);
+        }
+        if (condSystemUsageNotNull && !condSystemUsageInc) {
+            // systemUsage는 존재하지만 이전 값보다 증가하지 않은 경우
+            logger.debug("systemUsage is not increased: {} <= {} (containerId: {})", systemUsage, prevSystem, containerId);
+        }
+        if (condTotalUsageNotNull && !condTotalUsageInc) {
+            // totalUsage는 존재하지만 이전 값보다 증가하지 않은 경우
+            logger.debug("totalUsage is not increased: {} <= {} (containerId: {})", totalUsage, prevTotal, containerId);
+        }
+        if (condCpuCountNotNull && !condCpuCountPositive) {
+            // cpuCount는 존재하지만 0이거나 음수인 경우
+            logger.debug("cpuCount is not positive: {} (containerId: {})", cpuCount, containerId);
+        }
+
         return condTotalUsageNotNull &&
                 condSystemUsageNotNull &&
                 condCpuCountNotNull &&

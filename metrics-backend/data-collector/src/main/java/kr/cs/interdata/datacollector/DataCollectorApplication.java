@@ -143,10 +143,12 @@ class KafkaProducerRunner implements CommandLineRunner {
 
     // 호스트 리소스 수집 및 delta 계산
     private Map<String, Object> collectHostResource() {
+        //호스트 리소스 정보를 json 문자열로 읽어옴
         String jsonStr = hostMonitor.getResourcesAsJson();
         Map<String, Object> resourceMap = new Gson().fromJson(jsonStr, Map.class);
 
         // disk delta
+        //이전값과 현재값 차이를 계산
         long currDiskReadBytes = ((Number) resourceMap.get("diskReadBytes")).longValue();
         long currDiskWriteBytes = ((Number) resourceMap.get("diskWriteBytes")).longValue();
         long deltaDiskRead = currDiskReadBytes - prevDiskReadBytes;
@@ -155,35 +157,15 @@ class KafkaProducerRunner implements CommandLineRunner {
         prevDiskWriteBytes = currDiskWriteBytes;
 
         // network delta
+        //이전값과 현재값 차이를 계산
         Map<String, Object> netInfo = (Map<String, Object>) resourceMap.get("network");
-        Map<String, Map<String, Object>> netDelta = new HashMap<>();
-        for (String iface : netInfo.keySet()) {
-            Map<String, Object> ifaceInfo = (Map<String, Object>) netInfo.get(iface);
-            long currRecv = ((Number) ifaceInfo.get("bytesReceived")).longValue();
-            long currSent = ((Number) ifaceInfo.get("bytesSent")).longValue();
-            long prevRecv = prevNetRecv.getOrDefault(iface, currRecv);
-            long prevSent = prevNetSent.getOrDefault(iface, currSent);
-
-            long deltaRecv = currRecv - prevRecv;
-            long deltaSent = currSent - prevSent;
-
-            Map<String, Object> ifaceDelta = new HashMap<>();
-            ifaceDelta.put("rxBytesDelta", deltaRecv);
-            ifaceDelta.put("txBytesDelta", deltaSent);
-            netDelta.put(iface, ifaceDelta);
-
-            prevNetRecv.put(iface, currRecv);
-            prevNetSent.put(iface, currSent);
-        }
+        Map<String, Map<String, Object>> netDelta = computeHostNetworkDelta(netInfo);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("type", "host");
-        //result.put("hostId", hostId);
         result.put("hostId", resourceMap.get("hostId"));
-        //result.put("name", hostName);
         try {
             hostName = Files.readString(Paths.get("/host/etc/hostname")).trim();
-            //hostName = Files.readString(Paths.get("/host/proc/sys/kernel/hostname")).trim();
         } catch (Exception e) {
             hostName = "unknown";
         }
@@ -193,10 +175,34 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("memoryUsedBytes", resourceMap.get("memoryUsedBytes"));
         result.put("diskReadBytesDelta", deltaDiskRead);
         result.put("diskWriteBytesDelta", deltaDiskWrite);
-        result.put("networkDelta", netDelta);
+        result.put("networkDelta", netDelta);//각 네트워크 인터페이스별 delta
         result.put("temperatures", resourceMap.get("temperatures"));
 
         return result;
+    }
+
+    //네트워크 인터페이스별로 delta값을 계산해서 반환
+    private Map<String, Map<String, Object>> computeHostNetworkDelta(Map<String, Object> netInfo) {
+        Map<String, Map<String, Object>> netDelta = new HashMap<>();
+        for (String iface : netInfo.keySet()) {
+            Map<String, Object> ifaceInfo = (Map<String, Object>) netInfo.get(iface);
+            //각 인터페이스의 현재 수신 및 송신 바이트
+            long currRecv = ((Number) ifaceInfo.get("bytesReceived")).longValue();
+            long currSent = ((Number) ifaceInfo.get("bytesSent")).longValue();
+            //이전 값이 없으면 curr로 ㅊ초기화
+            long prevRecv = prevNetRecv.getOrDefault(iface, currRecv);
+            long prevSent = prevNetSent.getOrDefault(iface, currSent);
+
+            Map<String, Object> delta = new HashMap<>();
+            delta.put("rxBytesDelta", currRecv - prevRecv);
+            delta.put("txBytesDelta", currSent - prevSent);
+            netDelta.put(iface, delta);
+
+            //다음 계산을 위해 현재 값 저장
+            prevNetRecv.put(iface, currRecv);
+            prevNetSent.put(iface, currSent);
+        }
+        return netDelta;
     }
 
     // 모든 컨테이너 리소스 수집 및 delta 계산
@@ -216,6 +222,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         prevContainerTotalUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
         prevContainerSystemUsage.keySet().removeIf(id -> !currentContainerIds.contains(id));
 
+        //멀티스레드로 컨테이너 통계 병렬 수집
         List<Future<?>> futures = new ArrayList<>();
         for (Container container : containers) {
             futures.add(pool.submit(() -> {
@@ -232,28 +239,57 @@ class KafkaProducerRunner implements CommandLineRunner {
 
     // 컨테이너별 리소스 수집 및 delta 계산
     private Map<String, Object> collectContainerStats(Container container) {
-        Statistics stats = null;
-        try {
-            InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>();
+        try (InvocationBuilder.AsyncResultCallback<Statistics> callback = new InvocationBuilder.AsyncResultCallback<>()) {
             dockerCollector.getDockerClient().statsCmd(container.getId()).exec(callback);
-            stats = callback.awaitResult();
-            callback.close();
+            Statistics stats = callback.awaitResult();
+
+            return calculateContainerStats(container, stats);
         } catch (Exception e) {
+            //통계 수집 실패하면 빈 결과 반환
             return new LinkedHashMap<>();
         }
+    }
 
+    //실제 지표  계산
+    private Map<String, Object> calculateContainerStats(Container container, Statistics stats) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("name", Arrays.stream(container.getNames()).findFirst().orElse("unknown"));
+        String containerName = Arrays.stream(container.getNames()).findFirst().orElse("unknown");
+        result.put("name", containerName);
 
-        // CPU
+        // CPU 사용률(%)
+        double cpuUsagePercent = calculateCpuUsage(container.getId(), stats);
+        result.put("cpuUsagePercent", cpuUsagePercent);
+
+        // Memory 사용량(바이트)
+        long memoryUsedBytes = calculateMemoryUsage(stats);
+        result.put("memoryUsedBytes", memoryUsedBytes);
+
+        // Disk I/O delta
+        Map<String, Long> diskDeltas = calculateDiskDelta(container.getId(), stats);
+        result.put("diskReadBytesDelta", diskDeltas.getOrDefault("readDelta", 0L));
+        result.put("diskWriteBytesDelta", diskDeltas.getOrDefault("writeDelta", 0L));
+
+        // Network delta
+        Map<String, Object> networkDelta = calculateNetworkDelta(container.getId(), stats);
+        result.put("networkDelta", networkDelta);
+
+        return result;
+    }
+
+    //cpu 사용률 계산
+    //이전 상태와 비교해서 delta로 계산
+    private double calculateCpuUsage(String containerId, Statistics stats) {
         Long totalUsage = stats.getCpuStats().getCpuUsage().getTotalUsage();
         Long systemUsage = stats.getCpuStats().getSystemCpuUsage();
         Long cpuCount = stats.getCpuStats().getOnlineCpus();
 
-        long prevTotal = prevContainerTotalUsage.getOrDefault(container.getId(), totalUsage != null ? totalUsage : 0L);
-        long prevSystem = prevContainerSystemUsage.getOrDefault(container.getId(), systemUsage != null ? systemUsage : 0L);
+        //이전 값 없으면 현재로 대입
+        long prevTotal = prevContainerTotalUsage.getOrDefault(containerId, totalUsage != null ? totalUsage : 0L);
+        long prevSystem = prevContainerSystemUsage.getOrDefault(containerId, systemUsage != null ? systemUsage : 0L);
 
         double cpuUsagePercent = 0.0;
+
+        //이 부분 나눠야 함
         if (totalUsage != null && systemUsage != null && cpuCount != null &&
                 systemUsage > prevSystem && totalUsage > prevTotal && cpuCount > 0) {
             double cpuDelta = totalUsage - prevTotal;
@@ -261,23 +297,26 @@ class KafkaProducerRunner implements CommandLineRunner {
             cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
         }
 
-        prevContainerTotalUsage.put(container.getId(), totalUsage != null ? totalUsage : 0L);
-        prevContainerSystemUsage.put(container.getId(), systemUsage != null ? systemUsage : 0L);
+        //다음 계산을 위해 현재값 저장
+        prevContainerTotalUsage.put(containerId, totalUsage != null ? totalUsage : 0L);
+        prevContainerSystemUsage.put(containerId, systemUsage != null ? systemUsage : 0L);
 
-        result.put("cpuUsagePercent", cpuUsagePercent);
+        return cpuUsagePercent;
+    }
 
-        // Memory
-        Long memoryUsedBytes = 0L;
+    //메모리 사용량 계산
+    private long calculateMemoryUsage(Statistics stats) {
         try {
             if (stats.getMemoryStats() != null && stats.getMemoryStats().getUsage() != null) {
-                memoryUsedBytes = stats.getMemoryStats().getUsage();
+                return stats.getMemoryStats().getUsage();
             }
-        } catch (Exception e) {
-            memoryUsedBytes = 0L;
+        } catch (Exception ignored) {
         }
-        result.put("memoryUsedBytes", memoryUsedBytes);
+        return 0L;
+    }
 
-        // Disk I/O
+    //disk I/o delta 계산
+    private Map<String, Long> calculateDiskDelta(String containerId, Statistics stats) {
         long read = 0, write = 0;
         List<com.github.dockerjava.api.model.BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
         if (ioStats != null) {
@@ -291,17 +330,25 @@ class KafkaProducerRunner implements CommandLineRunner {
                 }
             }
         }
-        long prevRead = prevContainerDiskRead.getOrDefault(container.getId(), read);
-        long prevWrite = prevContainerDiskWrite.getOrDefault(container.getId(), write);
-        result.put("diskReadBytesDelta", read - prevRead);
-        result.put("diskWriteBytesDelta", write - prevWrite);
-        prevContainerDiskRead.put(container.getId(), read);
-        prevContainerDiskWrite.put(container.getId(), write);
+        long prevRead = prevContainerDiskRead.getOrDefault(containerId, read);
+        long prevWrite = prevContainerDiskWrite.getOrDefault(containerId, write);
 
-        // Network
+        Map<String, Long> delta = new HashMap<>();
+        delta.put("readDelta", read - prevRead);
+        delta.put("writeDelta", write - prevWrite);
+
+        //다음 계산을 위해 이전 값 저장
+        prevContainerDiskRead.put(containerId, read);
+        prevContainerDiskWrite.put(containerId, write);
+
+        return delta;
+    }
+
+    //컨테이너 네트워크 delta 계산
+    private Map<String, Object> calculateNetworkDelta(String containerId, Statistics stats) {
         Map<String, Object> networkDelta = new LinkedHashMap<>();
         if (stats.getNetworks() != null) {
-            Map<String, Long> prevNet = prevContainerNet.getOrDefault(container.getId(), new ConcurrentHashMap<>());
+            Map<String, Long> prevNet = prevContainerNet.getOrDefault(containerId, new ConcurrentHashMap<>());
             stats.getNetworks().forEach((iface, net) -> {
                 long rx = net.getRxBytes();
                 long tx = net.getTxBytes();
@@ -313,13 +360,12 @@ class KafkaProducerRunner implements CommandLineRunner {
                 ifaceData.put("txBytesDelta", tx - prevTx);
                 networkDelta.put(iface, ifaceData);
 
+                //다음 계산을 위해 현재값 저장
                 prevNet.put(iface + ":rx", rx);
                 prevNet.put(iface + ":tx", tx);
             });
-            prevContainerNet.put(container.getId(), prevNet);
+            prevContainerNet.put(containerId, prevNet);
         }
-        result.put("networkDelta", networkDelta);
-
-        return result;
+        return networkDelta;
     }
 }

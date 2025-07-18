@@ -110,7 +110,7 @@ public class ContainerResourceMonitor {
     // 네트워크 인터페이스별 누적 수신/송신 바이트 수를 반환
     public static Map<String, Long[]> getNetworkStats() {
         Map<String, Long[]> networkStats = new HashMap<>();
-        String netDev = readFile(PROC_NET_DEV);
+        String netDev = readFile("/proc/net/dev");
         if (netDev == null) return networkStats;
         String[] lines = netDev.split("\n");
         //첫 2줄은 헤더여서 2번째 줄부터 파싱
@@ -175,9 +175,9 @@ public class ContainerResourceMonitor {
     public static long[] getDiskIO() {
         long diskReadBytes = 0;
         long diskWriteBytes = 0;
-        String blkioData = readFile(CG_BLKIO_V1);
+        String blkioData = readFile("/sys/fs/cgroup/blkio/io_service_bytes_recursive");
         if (blkioData == null) {
-            blkioData = readFile(CG_IO_STAT_V2);
+            blkioData = readFile("/sys/fs/cgroup/io.stat");
             if (blkioData != null) {
                 String[] lines = blkioData.split("\n");
                 for (String line : lines) {

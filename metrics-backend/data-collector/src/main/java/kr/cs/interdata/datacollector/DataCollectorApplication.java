@@ -43,6 +43,8 @@ class KafkaProducerRunner implements CommandLineRunner {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaProducerRunner.class);
 
+    private static final String HOSTNAME_PATH = "/host/etc/hostname";
+
     @Value("${BOOTSTRAP_SERVER}")
     private String kafkaBootstrapServer;
 
@@ -173,7 +175,7 @@ class KafkaProducerRunner implements CommandLineRunner {
         result.put("type", "host");
         result.put("hostId", resourceMap.get("hostId"));
         try {
-            hostName = Files.readString(Paths.get("/host/etc/hostname")).trim();
+            hostName = Files.readString(Paths.get(HOSTNAME_PATH)).trim();
         } catch (Exception e) {
             hostName = "unknown";
         }

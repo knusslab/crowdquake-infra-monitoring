@@ -28,6 +28,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.dockerjava.api.model.BlkioStatEntry;
+
 
 @SpringBootApplication
 public class DataCollectorApplication {
@@ -382,9 +384,9 @@ class KafkaProducerRunner implements CommandLineRunner {
     //disk I/o delta 계산
     private Map<String, Long> calculateDiskDelta(String containerId, Statistics stats) {
         long read = 0, write = 0;
-        List<com.github.dockerjava.api.model.BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
+        List<BlkioStatEntry> ioStats = stats.getBlkioStats().getIoServiceBytesRecursive();
         if (ioStats != null) {
-            for (com.github.dockerjava.api.model.BlkioStatEntry entry : ioStats) {
+            for (BlkioStatEntry entry : ioStats) {
                 String op = entry.getOp();
                 Long value = entry.getValue();
                 if ("Read".equalsIgnoreCase(op)) {

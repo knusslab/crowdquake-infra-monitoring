@@ -110,7 +110,7 @@ public class ContainerResourceMonitor {
     // 네트워크 인터페이스별 누적 수신/송신 바이트 수를 반환
     public static Map<String, Long[]> getNetworkStats() {
         Map<String, Long[]> networkStats = new HashMap<>();
-        String netDev = readFile(PROC_NET_DEV);
+        String netDev = readFile("/proc/net/dev");
         if (netDev == null) return networkStats;
         String[] lines = netDev.split("\n");
         //첫 2줄은 헤더여서 2번째 줄부터 파싱
@@ -136,7 +136,7 @@ public class ContainerResourceMonitor {
     // CPU 누적 사용량(나노초) 반환 (cgroup v1/v2 모두 지원)
     public static Long getCpuUsageNano() {
         //누적 CPU 사용량을 반환
-        String v1Path = CG_CPUACCT_USAGE_V1;
+        String v1Path = "/sys/fs/cgroup/cpuacct/cpuacct.usage";
         if (Files.exists(Paths.get(v1Path))) {
             try {
                 String content = Files.readString(Paths.get(v1Path)).trim();
@@ -145,7 +145,7 @@ public class ContainerResourceMonitor {
                 logger.log(Level.WARNING, "Failed to read v1 cpuacct.usage", e);
             }
         } else {
-            String v2Path = CG_CPU_STAT_V2;
+            String v2Path = "/sys/fs/cgroup/cpu.stat";
             if (Files.exists(Paths.get(v2Path))) {
                 try {
                     for (String line : Files.readAllLines(Paths.get(v2Path))) {
@@ -164,9 +164,9 @@ public class ContainerResourceMonitor {
 
     // 컨테이너의 현재 메모리 사용량(바이트)을 반환
     public static Long getMemoryUsage() {
-        Long memoryUsage = readLongFromFile(CG_MEM_USAGE_V1);
+        Long memoryUsage = readLongFromFile("/sys/fs/cgroup/memory/memory.usage_in_bytes");
         if (memoryUsage == null) {
-            memoryUsage = readLongFromFile(CG_MEM_USAGE_V2);
+            memoryUsage = readLongFromFile("/sys/fs/cgroup/memory.current");
         }
         return memoryUsage;
     }

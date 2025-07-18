@@ -104,6 +104,11 @@ KAFKA_TOPIC_NAME=[kafka topic name]
 KAFKA_CONSUMER_GROUP_ID=[kafka consumer group id]
 API_BASE_URL=http://api-backend:8004    # 필수
 ```
+---
+
+## server-monitoring 주요 흐름도
+
+<img width="4812" height="2993" alt="Image" src="https://github.com/user-attachments/assets/406bbcf3-dce3-481b-a66e-2fcff3eaf2f5" />
 
 ---
 

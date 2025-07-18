@@ -25,6 +25,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+
 @SpringBootApplication
 public class DataCollectorApplication {
     public static void main(String[] args) {
@@ -34,6 +38,8 @@ public class DataCollectorApplication {
 
 @Component
 class KafkaProducerRunner implements CommandLineRunner {
+
+    private static final Logger logger = LoggerFactory.getLogger(KafkaProducerRunner.class);
 
     @Value("${BOOTSTRAP_SERVER}")
     private String kafkaBootstrapServer;
@@ -289,9 +295,7 @@ class KafkaProducerRunner implements CommandLineRunner {
 
         double cpuUsagePercent = 0.0;
 
-        //이 부분 나눠야 함
-        if (totalUsage != null && systemUsage != null && cpuCount != null &&
-                systemUsage > prevSystem && totalUsage > prevTotal && cpuCount > 0) {
+        if (cpuUsageCondition(totalUsage, prevTotal, systemUsage, prevSystem, cpuCount, containerId)) {
             double cpuDelta = totalUsage - prevTotal;
             double systemDelta = systemUsage - prevSystem;
             cpuUsagePercent = (cpuDelta / systemDelta) * cpuCount * 100.0;
@@ -302,6 +306,41 @@ class KafkaProducerRunner implements CommandLineRunner {
         prevContainerSystemUsage.put(containerId, systemUsage != null ? systemUsage : 0L);
 
         return cpuUsagePercent;
+    }
+
+    /**
+     * 컨테이너의 CPU 사용률을 계산하기 전, 필요한 조건이 모두 만족하는지 확인하는 함수.
+     *
+     * 검사하는 조건(모두 만족해야 정상 계산 가능):
+     *   1. totalUsage(누적 컨테이너 CPU)이 null이 아님
+     *   2. systemUsage(누적 시스템 CPU)가 null이 아님
+     *   3. cpuCount(코어 수)가 null이 아님
+     *   4. systemUsage가 prevSystem 보다 증가했음 (CPU 누적량이 정상적으로 커져야 함)
+     *   5. totalUsage가 prevTotal 보다 증가했음 (컨테이너 누적 사용량도 증가해야 정상)
+     *   6. cpuCount가 1 이상 양의 값이어야 함
+     *
+     * 반환값:
+     *   - true: 계산 가능한 상태(정상)
+     *   - false: 위 조건 중 하나 이상이 실패 (계산하지 않음, 로그 등으로 추가 분석 필요)
+     */
+    private boolean cpuUsageCondition(
+            Long totalUsage, long prevTotal,
+            Long systemUsage, long prevSystem,
+            Long cpuCount, String containerId
+    ) {
+        boolean condTotalUsageNotNull   = totalUsage != null;
+        boolean condSystemUsageNotNull  = systemUsage != null;
+        boolean condCpuCountNotNull     = cpuCount != null;
+        boolean condSystemUsageInc      = condSystemUsageNotNull && systemUsage > prevSystem;
+        boolean condTotalUsageInc       = condTotalUsageNotNull && totalUsage > prevTotal;
+        boolean condCpuCountPositive    = condCpuCountNotNull && cpuCount > 0;
+
+        return condTotalUsageNotNull &&
+                condSystemUsageNotNull &&
+                condCpuCountNotNull &&
+                condSystemUsageInc &&
+                condTotalUsageInc &&
+                condCpuCountPositive;
     }
 
     //메모리 사용량 계산

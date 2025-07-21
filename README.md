@@ -193,6 +193,8 @@ API_BASE_URL=http://api-backend:8004    # 필수
 # api-backend 모듈 설명
 
 `api-backend`는 클라이언트(프론트엔드)와 다른 백엔드 서버(metrics-backend)로부터 API 요청을 받아 처리하며, 데이터베이스와 관련된 모든 작업을 담당하는 Java Spring 기반 서버입니다.  
+➡ [자세한 README 보기](./api-backend/README.md)
+
 이 시스템은 데이터 저장·조회, 임계치 관리, 실시간 데이터 알림 등 다양한 API 기능을 제공하며, 클라이언트와 백엔드 간의 데이터 흐름을 중계하는 핵심 브릿지 역할을 수행합니다.
 
 주요 기능은 다음과 같습니다:
@@ -202,6 +204,8 @@ API_BASE_URL=http://api-backend:8004    # 필수
 - SSE(Server-Sent Events) 방식으로 임계치 초과 데이터를 클라이언트에 실시간 전달
 - 날짜별 임계치 초과 데이터 조회, 임계치 설정/조회 등 다양한 API 제공
 - 클라이언트와 백엔드 서버 간 데이터 흐름을 중계하는 브릿지 역할
+
+
 
 ## api-backend 주요 기능 및 구조
 

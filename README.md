@@ -175,11 +175,9 @@ API_BASE_URL=http://api-backend:8004    # 필수
 
 ## 📁 모듈 구성
 
-- **container-data-collector**  
-  컨테이너 머신의 자원 사용 데이터를 수집합니다.
-
-- **machine-data-collector**  
-  호스트 머신의 자원 사용 데이터를 수집합니다.
+- **data-collector**  
+  컨테이너 머신 및 호스트 머신의 자원 사용 데이터를 수집합니다.
+  > - [data-collector README 보기](./metrics-backend/data-collector/README.md)
 
 - **producer**  
   수집된 데이터를 Kafka로 전송하는 Kafka 프로듀서 역할을 합니다.

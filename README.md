@@ -181,6 +181,7 @@ API_BASE_URL=http://api-backend:8004    # 필수
 
 - **producer**  
   수집된 데이터를 Kafka로 전송하는 Kafka 프로듀서 역할을 합니다.
+  > - [producer README](./metrics-backend/producer/README.md)
 
 - **consumer**  
   Kafka로부터 메트릭 데이터를 수신하며, 내부적으로 WebClient를 활용해 데이터를 backend에 전송하는 기능을 수행합니다.

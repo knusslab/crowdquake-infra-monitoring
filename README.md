@@ -177,13 +177,15 @@ API_BASE_URL=http://api-backend:8004    # 필수
 
 - **data-collector**  
   컨테이너 머신 및 호스트 머신의 자원 사용 데이터를 수집합니다.
-  > - [data-collector README 보기](./metrics-backend/data-collector/README.md)
+  > - [data-collector README](./metrics-backend/data-collector/README.md)
 
 - **producer**  
   수집된 데이터를 Kafka로 전송하는 Kafka 프로듀서 역할을 합니다.
 
 - **consumer**  
   Kafka로부터 메트릭 데이터를 수신하며, 내부적으로 WebClient를 활용해 데이터를 backend에 전송하는 기능을 수행합니다.
+  > - [consumer README](./metrics-backend/consumer/README.md)
+
 
 ---
 

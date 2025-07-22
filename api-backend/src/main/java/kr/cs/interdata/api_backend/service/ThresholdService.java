@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import kr.cs.interdata.api_backend.dto.*;
 import kr.cs.interdata.api_backend.dto.abnormal_log_dto.*;
+import kr.cs.interdata.api_backend.dto.history_dto.HistoryFilter;
+import kr.cs.interdata.api_backend.dto.history_dto.HistoryForMachineId;
 import kr.cs.interdata.api_backend.entity.AbnormalMetricLog;
 import kr.cs.interdata.api_backend.infra.ThresholdStore;
 import kr.cs.interdata.api_backend.service.repository_service.AbnormalDetectionService;
@@ -24,6 +26,11 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.stream.Collectors;
+import kr.cs.interdata.api_backend.repository.AbnormalMetricLogRepository;
 
 @Service
 public class ThresholdService {
@@ -41,6 +48,8 @@ public class ThresholdService {
     private final ContainerInventoryService containerInventoryService;
     private final ThresholdStore thresholdStore;
 
+    @Autowired
+    private AbnormalMetricLogRepository abnormalMetricLogRepository;
 
     @Autowired
     public ThresholdService(ThresholdStore thresholdStore,
@@ -240,13 +249,78 @@ public class ThresholdService {
      * @param machineId  조회할 machine Id
      * @return  이력 리스트
      */
-    public List<Map<String, Object>> getThresholdHistoryforMachineId(MachineIdforHistory machineId) {
-
+    public List<Map<String, Object>> getThresholdHistoryforMachineId(HistoryForMachineId machineId) {
         // Service를 통해 DB 조회
         List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalMetricsByMachineId(machineId.getTargetId());
 
         // 결과를 클라이언트에 맞게 매핑 및 반환
         return getMapList(logs);
+    }
+
+    /**
+     *  - parameter로 abnormal log를 필터링하여 최대 50개까지의 로그를 조회한다.
+     * @param filter    필터링 데이터
+     * @return  필터링한 최대 50개의 로그들
+     */
+    public List<Map<String, Object>> getThresholdHistory(HistoryFilter filter) {
+        // 날짜 파라미터 처리
+        LocalDateTime start = null;
+        LocalDateTime end = null;
+        if (filter.getDate() != null) {
+            LocalDate parsedDate = LocalDate.parse(filter.getDate());
+            start = parsedDate.atStartOfDay();
+            end = parsedDate.atTime(LocalTime.MAX);
+        }
+
+        // Repository 메서드를 통해 모든 조건을 검색 (null 허용)
+        List<AbnormalMetricLog> logs = abnormalMetricLogRepository.findFilteredLogs(
+                start,
+                end,
+                filter.getMachineType(),
+                filter.getMachineName(),
+                filter.getMessageType(),
+                filter.getMetricName()
+        );
+
+        // 최대 50건 제한, Map 형태로 변환 후 반환
+        return logs.stream()
+                .limit(50)
+                .map(log -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("messageType", log.getMessageType());
+                    map.put("machineType", log.getMachineType());
+                    map.put("machineId", log.getMachineId());
+                    map.put("machineName", log.getMachineName());
+                    map.put("metricName", log.getMetricName());
+                    map.put("threshold", log.getThreshold());
+                    map.put("value", log.getValue());
+                    map.put("timestamp", log.getTimestamp());
+                    return map;
+                })
+                .collect(Collectors.toList());
+        /**
+        Map<String, String> paramMap = new LinkedHashMap<>();
+        paramMap.put("data", filter.getDate());
+        paramMap.put("machineType", filter.getMachineType());
+        paramMap.put("hostName", filter.getHostName());
+        paramMap.put("machineName", filter.getMachineName());
+        paramMap.put("messageType", filter.getMessageType());
+        paramMap.put("metricName", filter.getMetricName());
+
+        Optional<Map.Entry<String, String>> nonNullParam = paramMap.entrySet()
+                .stream()
+                .filter(e -> e.getValue() != null)
+                .findFirst();
+
+        if (nonNullParam.isEmpty()) return Collections.emptyList();
+
+        String type = nonNullParam.get().getKey();
+        String data = nonNullParam.get().getValue();
+
+        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalLogs(type, data);
+
+        return getMapList(logs);
+         **/
     }
 
     /**

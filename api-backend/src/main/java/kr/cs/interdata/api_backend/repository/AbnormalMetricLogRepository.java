@@ -37,6 +37,24 @@ public interface AbnormalMetricLogRepository extends JpaRepository<AbnormalMetri
 
     List<AbnormalMetricLog> findTop50ByMetricNameOrderByTimestampDesc(String metricName);
 
+
+    @Query("SELECT l FROM AbnormalMetricLog l " +
+            "WHERE (:start IS NULL OR l.timestamp >= :start) " +
+            "AND (:end IS NULL OR l.timestamp <= :end) " +
+            "AND (:machineType IS NULL OR l.machineType = :machineType) " +
+            "AND (:machineName IS NULL OR l.machineName = :machineName) " +
+            "AND (:messageType IS NULL OR l.messageType = :messageType) " +
+            "AND (:metricName IS NULL OR l.metricName = :metricName) " +
+            "ORDER BY l.timestamp DESC")
+    List<AbnormalMetricLog> findFilteredLogs(
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            @Param("machineType") String machineType,
+            @Param("machineName") String machineName,
+            @Param("messageType") String messageType,
+            @Param("metricName") String metricName
+    );
+
     @Query("SELECT a FROM AbnormalMetricLog a " +
             "WHERE a.machineType = 'host' AND a.machineName = :machineName " +
             "ORDER BY a.timestamp DESC")

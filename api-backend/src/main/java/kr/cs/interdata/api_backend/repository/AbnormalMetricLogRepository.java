@@ -42,8 +42,8 @@ public interface AbnormalMetricLogRepository extends JpaRepository<AbnormalMetri
             "WHERE (:start IS NULL OR l.timestamp >= :start) " +
             "AND (:end IS NULL OR l.timestamp <= :end) " +
             "AND (:machineType IS NULL OR l.machineType = :machineType) " +
-            "AND (:machineName IS NULL OR l.machineName = :machineName) " +
             "AND (:hostName IS NULL OR l.hostName = :hostName) " +
+            "AND (:machineName IS NULL OR l.machineName = :machineName) " +
             "AND (:messageType IS NULL OR l.messageType = :messageType) " +
             "AND (:metricName IS NULL OR l.metricName = :metricName) " +
             "ORDER BY l.timestamp DESC")
@@ -51,8 +51,8 @@ public interface AbnormalMetricLogRepository extends JpaRepository<AbnormalMetri
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             @Param("machineType") String machineType,
-            @Param("machineName") String machineName,
             @Param("hostName") String hostName,
+            @Param("machineName") String machineName,
             @Param("messageType") String messageType,
             @Param("metricName") String metricName
     );

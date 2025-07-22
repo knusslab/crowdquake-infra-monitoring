@@ -262,67 +262,82 @@ public class ThresholdService {
      * @param filter    필터링 데이터
      * @return  필터링한 최대 50개의 로그들
      */
+
+
     public List<Map<String, Object>> getThresholdHistory(HistoryFilter filter) {
-        // 날짜 파라미터 처리
+        // (1) 메서드 시작 직후, 입력값이 제대로 들어오는지 확인!
+        System.out.println("[LOG] getThresholdHistory 메서드 진입");
+        System.out.println("[LOG] 전달된 파라미터: " + filter);
+
+
+        // 날짜 조건 처리
         LocalDateTime start = null;
         LocalDateTime end = null;
         if (filter.getDate() != null) {
-            LocalDate parsedDate = LocalDate.parse(filter.getDate());
-            start = parsedDate.atStartOfDay();
-            end = parsedDate.atTime(LocalTime.MAX);
+            try {
+                LocalDate parsedDate = LocalDate.parse(filter.getDate());
+                start = parsedDate.atStartOfDay();
+                end = parsedDate.atTime(LocalTime.MAX);
+            } catch (Exception e) {
+                System.out.println("[ERROR] 날짜 변환 오류: " + filter.getDate());
+                e.printStackTrace();
+            }
         }
 
-        // Repository 메서드를 통해 모든 조건을 검색 (null 허용)
-        List<AbnormalMetricLog> logs = abnormalMetricLogRepository.findFilteredLogs(
-                start,
-                end,
-                filter.getMachineType(),
-                filter.getHostName(),
-                filter.getMachineName(),
-                filter.getMessageType(),
-                filter.getMetricName()
-        );
+        // (2) 실제로 DB에 쿼리 보내기 직전에, 어떤 값이 들어가는지 체크!
+        System.out.println("[LOG] findFilteredLogs 호출 파라미터:");
+        System.out.println("   start=" + start);
+        System.out.println("   end=" + end);
+        System.out.println("   machineType=" + filter.getMachineType());
+        System.out.println("   hostName=" + filter.getHostName());
+        System.out.println("   machineName=" + filter.getMachineName());
+        System.out.println("   messageType=" + filter.getMessageType());
+        System.out.println("   metricName=" + filter.getMetricName());
 
-        // 최대 50건 제한, Map 형태로 변환 후 반환
-        return logs.stream()
-                .limit(50)
-                .map(log -> {
-                    Map<String, Object> map = new LinkedHashMap<>();
-                    map.put("messageType", log.getMessageType());
-                    map.put("machineType", log.getMachineType());
-                    map.put("machineId", log.getMachineId());
-                    map.put("machineName", log.getMachineName());
-                    map.put("hostName", log.getHostName());
-                    map.put("metricName", log.getMetricName());
-                    map.put("threshold", log.getThreshold());
-                    map.put("value", log.getValue());
-                    map.put("timestamp", log.getTimestamp());
-                    return map;
-                })
-                .collect(Collectors.toList());
-        /**
-        Map<String, String> paramMap = new LinkedHashMap<>();
-        paramMap.put("data", filter.getDate());
-        paramMap.put("machineType", filter.getMachineType());
-        paramMap.put("hostName", filter.getHostName());
-        paramMap.put("machineName", filter.getMachineName());
-        paramMap.put("messageType", filter.getMessageType());
-        paramMap.put("metricName", filter.getMetricName());
+        try {
+            List<AbnormalMetricLog> logs = abnormalMetricLogRepository.findFilteredLogs(
+                    start,
+                    end,
+                    filter.getMachineType(),
+                    filter.getHostName(),
+                    filter.getMachineName(),
+                    filter.getMessageType(),
+                    filter.getMetricName()
+            );
 
-        Optional<Map.Entry<String, String>> nonNullParam = paramMap.entrySet()
-                .stream()
-                .filter(e -> e.getValue() != null)
-                .findFirst();
+            System.out.println("[LOG] 로그 쿼리 결과 개수: " + logs.size());
 
-        if (nonNullParam.isEmpty()) return Collections.emptyList();
+            return logs.stream()
+                    .limit(50)
+                    .map(log -> {
+                        try {
+                            Map<String, Object> map = new LinkedHashMap<>();
+                            map.put("messageType", log.getMessageType());
+                            map.put("machineType", log.getMachineType());
+                            map.put("machineId", log.getMachineId());
+                            map.put("machineName", log.getMachineName());
+                            map.put("hostName", log.getHostName());
+                            map.put("metricName", log.getMetricName());
+                            map.put("threshold", log.getThreshold());
+                            map.put("value", log.getValue());
+                            map.put("timestamp", log.getTimestamp());
+                            return map;
+                        } catch (Exception e) {
+                            // (3) 한 줄에서라도 데이터 매핑이 오류나면 여기서도 찍어줍니다!
+                            System.out.println("[ERROR] map 변환 중 오류 발생! 상세: " + e.getMessage());
+                            e.printStackTrace();
+                            return null;
+                        }
+                    })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
 
-        String type = nonNullParam.get().getKey();
-        String data = nonNullParam.get().getValue();
-
-        List<AbnormalMetricLog> logs = abnormalDetectionService.getLatestAbnormalLogs(type, data);
-
-        return getMapList(logs);
-         **/
+        } catch (Exception e) {
+            // (4) 그 외의 모든 에러는 여기서 다 잡아줍니다!
+            System.out.println("[ERROR] getThresholdHistory 전체 처리 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            return Collections.emptyList();
+        }
     }
 
     /**

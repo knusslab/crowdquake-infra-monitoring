@@ -277,6 +277,7 @@ public class ThresholdService {
                 start,
                 end,
                 filter.getMachineType(),
+                filter.getHostName(),
                 filter.getMachineName(),
                 filter.getMessageType(),
                 filter.getMetricName()
@@ -291,6 +292,7 @@ public class ThresholdService {
                     map.put("machineType", log.getMachineType());
                     map.put("machineId", log.getMachineId());
                     map.put("machineName", log.getMachineName());
+                    map.put("hostName", log.getHostName());
                     map.put("metricName", log.getMetricName());
                     map.put("threshold", log.getThreshold());
                     map.put("value", log.getValue());

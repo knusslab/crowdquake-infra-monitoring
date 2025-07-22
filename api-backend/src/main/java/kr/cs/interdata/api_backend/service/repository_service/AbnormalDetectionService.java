@@ -106,6 +106,7 @@ public class AbnormalDetectionService {
     public void storeZeroValue(String type,
                                String id,
                                String name,
+                               String hostName,
                                LocalDateTime timestamp) {
         AbnormalMetricLog abn = new AbnormalMetricLog();
 
@@ -114,6 +115,7 @@ public class AbnormalDetectionService {
         abn.setMachineType(type);
         abn.setMachineId(id);
         abn.setMachineName(name);
+        abn.setHostName(hostName);
         abn.setTimestamp(timestamp);
         abnormalMetricLogRepository.save(abn);
     }

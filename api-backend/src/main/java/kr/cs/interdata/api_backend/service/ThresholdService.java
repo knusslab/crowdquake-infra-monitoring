@@ -498,11 +498,12 @@ public class ThresholdService {
      * @param machineName   이상 로그 발생 머신의 name
      * @param violationTime 이상 로그가 발생한 시각
      */
-    public void storeZeroValueLog(String type, String machineId, String machineName, LocalDateTime violationTime) {
+    public void storeZeroValueLog(String type, String machineId, String machineName,String hostName, LocalDateTime violationTime) {
         abnormalDetectionService.storeZeroValue(
                 type,
                 machineId,
                 machineName,
+                hostName,
                 violationTime);
 
         // 실시간 전송 준비
@@ -786,7 +787,8 @@ public class ThresholdService {
         // 1. Host 자체 메트릭 처리
         processMetricAnomaly(
                 type,                  // "host"
-                hostId,                // host id
+                hostId,
+                hostName,// host id
                 hostName,                  // hostName
                 LocalDateTime.parse(violationTime),
                 root                   // 전체 JSON에서 host 메트릭은 root 자체
@@ -808,6 +810,7 @@ public class ThresholdService {
                         "container",
                         containerId,
                         containerName,
+                        hostName,
                         LocalDateTime.parse(violationTime),
                         containerNode
                 );
@@ -823,7 +826,7 @@ public class ThresholdService {
      * @param violationTime 데이터 수집 시각
      * @param metricsNode 분석할 메트릭 데이터(JSON Node)
      */
-    public void processMetricAnomaly(String type, String machineId, String machineName, LocalDateTime violationTime, JsonNode metricsNode) {
+    public void processMetricAnomaly(String type, String machineId, String machineName, String hostName, LocalDateTime violationTime, JsonNode metricsNode) {
         double metricValue = 0.0;
         int zeroValueCnt = 0;
         String metricName = null;
@@ -872,7 +875,7 @@ public class ThresholdService {
 
         // 모든 메트릭이 0일 경우 → 캐시에 없을 때만 로그 저장
         if (zeroValueCnt == 4 && !zeroStateCache.containsKey(cacheKey)) {
-            storeZeroValueLog(type, machineId, machineName, violationTime);
+            storeZeroValueLog(type, machineId, machineName,hostName, violationTime);
             zeroStateCache.put(cacheKey, true);
         }
 

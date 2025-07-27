@@ -52,13 +52,13 @@ public class ListenerContainerConfiguration {
             /* @Override
             public void onPartitionsRevokedBeforeCommit(Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
 		        // commit이 되기 전 리백런스가 발생했을 때
-                System.out.println("리밸런싱 시작 - 반납된 파티션: " + partitions);
+                logger.info("리밸런싱 시작 - 반납된 파티션: {}", partitions);
 	        }
 
             @Override
             public void onPartitionsRevokedAfterCommit(Consumer<?, ?> consumer, Collection<TopicPartition> partitions) {
                 // commit이 일어난 후에 리백런스가 발생했을 때
-                System.out.println("리밸런싱 시작 - 반납된 파티션: " + partitions);
+                logger.info("리밸런싱 시작 - 반납된 파티션: {}", partitions);
             } */
 
             @Override

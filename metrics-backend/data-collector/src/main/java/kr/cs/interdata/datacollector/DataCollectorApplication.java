@@ -99,7 +99,7 @@ class KafkaProducerRunner implements CommandLineRunner {
 
                 // 4. JSON 문자열로 변환 (pretty print) 후 콘솔에 출력
                 String prettyJson = prettyMapper.writeValueAsString(hostData);
-                System.out.println(prettyJson);
+                logger.info(prettyJson);
 
                 //카프카에 메시지 전송
                 sendKafkaRecord(producer, kafkaTopic, prettyJson);
@@ -142,9 +142,9 @@ class KafkaProducerRunner implements CommandLineRunner {
         //비동기 전송 및 전송 결과 처리 콜백
         producer.send(record, (metadata, exception) -> {
             if (exception != null) {
-                System.err.println("Kafka 전송 실패: " + exception.getMessage());
+                logger.error("Kafka 전송 실패: {}", exception.getMessage());
             } else {
-                System.out.println("Kafka 전송 성공: " + metadata.topic() + " offset=" + metadata.offset());
+                logger.info("Kafka 전송 성공: {} offset= {}", metadata.topic(), metadata.offset());
             }
         });
     }
